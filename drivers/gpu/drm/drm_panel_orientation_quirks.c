@@ -140,6 +140,12 @@ static const struct dmi_system_id orientation_data[] = {
 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "One S1003"),
 		},
 		.driver_data = (void *)&lcd800x1280_rightside_up,
+	}, {	/* AOKZOE A1 AR07 */
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "AOKZOE"),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "AOKZOE A1 AR07"),
+		},
+		.driver_data = (void *)&lcd1200x1920_leftside_up,
 	}, {	/* Asus T100HA */
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC."),
@@ -170,12 +176,6 @@ static const struct dmi_system_id orientation_data[] = {
 		  DMI_MATCH(DMI_BOARD_NAME, "NEXT"),
 		},
 		.driver_data = (void *)&lcd800x1280_rightside_up,
-	}, {	/* AOKZOE A1 AR07 */
-		.matches = {
-		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "AOKZOE"),
-		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "AOKZOE A1 AR07"),
-		},
-		.driver_data = (void *)&lcd1200x1920_leftside_up,
 	}, {	/* Chuwi HiBook (CWI514) */
 		.matches = {
 			DMI_MATCH(DMI_BOARD_VENDOR, "Hampoo"),
@@ -326,6 +326,30 @@ static const struct dmi_system_id orientation_data[] = {
 		  DMI_EXACT_MATCH(DMI_PRODUCT_VERSION, "Default string"),
 		},
 		.driver_data = (void *)&onegx1_pro,
+	}, {	/* OneXPlayer 800P Original DMI Values */
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK TECHNOLOGY CO., LTD."),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONE XPLAYER"),
+		},
+		.driver_data = (void *)&lcd800x1280_leftside_up,
+	}, {	/* OneXPlayer 1200P Original DMI Values */
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK TECHNOLOGY CO., LTD."),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONE XPLAYER"),
+		},
+		.driver_data = (void *)&lcd1200x1920_leftside_up,
+	}, {	/* OneXPlayer 1600P Original DMI Values */
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK TECHNOLOGY CO., LTD."),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONE XPLAYER"),
+		},
+		.driver_data = (void *)&lcd1600x2560_leftside_up,
+	}, {	/* OneXPlayer Gundam Edition Bios Updated */
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER GUNDAM GA72"),
+		},
+		.driver_data = (void *)&lcd1200x1920_leftside_up,
 	}, {	/* ONEXPLAYER mini A07 800P Bios Updated */
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
@@ -344,28 +368,22 @@ static const struct dmi_system_id orientation_data[] = {
 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GA72"),
 		},
 		.driver_data = (void *)&lcd800x1280_leftside_up,
-	}, {	/* ONEXPLAYER mini GT72 800P Bios Updated*/
-		.matches = {
-		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
-		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GT72"),
-		},
-		.driver_data = (void *)&lcd800x1280_leftside_up,
 	}, {	/* ONEXPLAYER mini GA72 1200P Bios Updated*/
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GA72"),
 		},
 		.driver_data = (void *)&lcd1200x1920_leftside_up,
-	}, {	/* ONEXPLAYER mini GT72 1200P Bios Updated*/
+	}, {	/* ONEXPLAYER mini GT72 800P Bios Updated*/
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GT72"),
 		},
-		.driver_data = (void *)&lcd1200x1920_leftside_up,
-	}, {	/* OneXPlayer Gundam Edition Bios Updated */
+		.driver_data = (void *)&lcd800x1280_leftside_up,
+	}, {	/* ONEXPLAYER mini GT72 1200P Bios Updated*/
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
-		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER GUNDAM GA72"),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GT72"),
 		},
 		.driver_data = (void *)&lcd1200x1920_leftside_up,
 	}, {	/* OneXPlayer 1 8.4" Intel Bios Updated */
@@ -378,24 +396,6 @@ static const struct dmi_system_id orientation_data[] = {
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER 1S T08"),
-		},
-		.driver_data = (void *)&lcd1600x2560_leftside_up,
-	}, {	/* OneXPlayer 800P Original DMI Values */
-		.matches = {
-		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK TECHNOLOGY CO., LTD."),
-		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONE XPLAYER"),
-		},
-		.driver_data = (void *)&lcd800x1280_leftside_up,
-	}, {	/* OneXPlayer 1200P Original DMI Values */
-		.matches = {
-		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK TECHNOLOGY CO., LTD."),
-		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONE XPLAYER"),
-		},
-		.driver_data = (void *)&lcd1200x1920_leftside_up,
-	}, {	/* OneXPlayer 1600P Original DMI Values */
-		.matches = {
-		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK TECHNOLOGY CO., LTD."),
-		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONE XPLAYER"),
 		},
 		.driver_data = (void *)&lcd1600x2560_leftside_up,
 	}, {	/* Samsung GalaxyBook 10.6 */
