@@ -338,6 +338,30 @@ static const struct dmi_system_id orientation_data[] = {
 		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini A07"),
 		},
 		.driver_data = (void *)&lcd1200x1920_leftside_up,
+	}, {	/* ONEXPLAYER mini GA72 800P Bios Updated*/
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GA72"),
+		},
+		.driver_data = (void *)&lcd800x1280_leftside_up,
+	}, {	/* ONEXPLAYER mini GT72 800P Bios Updated*/
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GT72"),
+		},
+		.driver_data = (void *)&lcd800x1280_leftside_up,
+	}, {	/* ONEXPLAYER mini GA72 1200P Bios Updated*/
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GA72"),
+		},
+		.driver_data = (void *)&lcd1200x1920_leftside_up,
+	}, {	/* ONEXPLAYER mini GT72 1200P Bios Updated*/
+		.matches = {
+		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
+		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "ONEXPLAYER mini GT72"),
+		},
+		.driver_data = (void *)&lcd1200x1920_leftside_up,
 	}, {	/* OneXPlayer Gundam Edition Bios Updated */
 		.matches = {
 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "ONE-NETBOOK"),
