@@ -1764,7 +1764,9 @@ static int ocfs2_get_sector(struct super_block *sb,
 	if (!buffer_dirty(*bh))
 		clear_buffer_uptodate(*bh);
 	unlock_buffer(*bh);
-	if (bh_read(*bh, 0) < 0) {
+	ll_rw_block(REQ_OP_READ, 1, bh);
+	wait_on_buffer(*bh);
+	if (!buffer_uptodate(*bh)) {
 		mlog_errno(-EIO);
 		brelse(*bh);
 		*bh = NULL;
@@ -2219,7 +2221,7 @@ static int ocfs2_initialize_super(struct super_block *sb,
 		goto out_journal;
 	}
 
-	strscpy(osb->vol_label, di->id2.i_super.s_label,
+	strlcpy(osb->vol_label, di->id2.i_super.s_label,
 		OCFS2_MAX_VOL_LABEL_LEN);
 	osb->root_blkno = le64_to_cpu(di->id2.i_super.s_root_blkno);
 	osb->system_dir_blkno = le64_to_cpu(di->id2.i_super.s_system_dir_blkno);

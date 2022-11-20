@@ -1622,7 +1622,7 @@ static void boe_panel_shutdown(struct mipi_dsi_device *dsi)
 	drm_panel_unprepare(&boe->base);
 }
 
-static void boe_panel_remove(struct mipi_dsi_device *dsi)
+static int boe_panel_remove(struct mipi_dsi_device *dsi)
 {
 	struct boe_panel *boe = mipi_dsi_get_drvdata(dsi);
 	int ret;
@@ -1635,6 +1635,8 @@ static void boe_panel_remove(struct mipi_dsi_device *dsi)
 
 	if (boe->base.dev)
 		drm_panel_remove(&boe->base);
+
+	return 0;
 }
 
 static const struct of_device_id boe_of_match[] = {

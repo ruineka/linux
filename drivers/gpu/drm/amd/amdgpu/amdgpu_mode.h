@@ -38,6 +38,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_framebuffer.h>
+#include <drm/drm_plane_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
@@ -346,8 +347,6 @@ struct amdgpu_mode_info {
 	const struct amdgpu_display_funcs *funcs;
 	const enum drm_plane_type *plane_type;
 };
-
-#define AMDGPU_MAX_BL_LEVEL 0xFF
 
 struct amdgpu_backlight_privdata {
 	struct amdgpu_encoder *encoder;

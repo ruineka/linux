@@ -79,11 +79,6 @@ static inline bool pde_is_permanent(const struct proc_dir_entry *pde)
 	return pde->flags & PROC_ENTRY_PERMANENT;
 }
 
-static inline void pde_make_permanent(struct proc_dir_entry *pde)
-{
-	pde->flags |= PROC_ENTRY_PERMANENT;
-}
-
 extern struct kmem_cache *proc_dir_entry_cache;
 void pde_free(struct proc_dir_entry *pde);
 
@@ -290,7 +285,7 @@ struct proc_maps_private {
 	struct task_struct *task;
 	struct mm_struct *mm;
 #ifdef CONFIG_MMU
-	struct vma_iterator iter;
+	struct vm_area_struct *tail_vma;
 #endif
 #ifdef CONFIG_NUMA
 	struct mempolicy *task_mempolicy;
@@ -305,6 +300,7 @@ extern const struct file_operations proc_pid_smaps_operations;
 extern const struct file_operations proc_pid_smaps_rollup_operations;
 extern const struct file_operations proc_clear_refs_operations;
 extern const struct file_operations proc_pagemap_operations;
+extern const struct file_operations proc_pagemap_reset_operations;
 
 extern unsigned long task_vsize(struct mm_struct *);
 extern unsigned long task_statm(struct mm_struct *,

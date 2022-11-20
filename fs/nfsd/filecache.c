@@ -1041,10 +1041,9 @@ nfsd_file_do_acquire(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		.need	= may_flags & NFSD_FILE_MAY_MASK,
 		.net	= SVC_NET(rqstp),
 	};
-	bool open_retry = true;
-	struct nfsd_file *nf;
+	struct nfsd_file *nf, *new;
+	bool retry = true;
 	__be32 status;
-	int ret;
 
 	status = fh_verify(rqstp, fhp, S_IFREG,
 				may_flags|NFSD_MAY_OWNER_OVERRIDE);
@@ -1054,34 +1053,35 @@ nfsd_file_do_acquire(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	key.cred = get_current_cred();
 
 retry:
-	rcu_read_lock();
-	nf = rhashtable_lookup(&nfsd_file_rhash_tbl, &key,
-			       nfsd_file_rhash_params);
+	/* Avoid allocation if the item is already in cache */
+	nf = rhashtable_lookup_fast(&nfsd_file_rhash_tbl, &key,
+				    nfsd_file_rhash_params);
 	if (nf)
 		nf = nfsd_file_get(nf);
-	rcu_read_unlock();
 	if (nf)
 		goto wait_for_construction;
 
-	nf = nfsd_file_alloc(&key, may_flags);
-	if (!nf) {
+	new = nfsd_file_alloc(&key, may_flags);
+	if (!new) {
 		status = nfserr_jukebox;
 		goto out_status;
 	}
 
-	ret = rhashtable_lookup_insert_key(&nfsd_file_rhash_tbl,
-					   &key, &nf->nf_rhash,
-					   nfsd_file_rhash_params);
-	if (likely(ret == 0))
+	nf = rhashtable_lookup_get_insert_key(&nfsd_file_rhash_tbl,
+					      &key, &new->nf_rhash,
+					      nfsd_file_rhash_params);
+	if (!nf) {
+		nf = new;
 		goto open_file;
-
-	nfsd_file_slab_free(&nf->nf_rcu);
-	nf = NULL;
-	if (ret == -EEXIST)
-		goto retry;
-	trace_nfsd_file_insert_err(rqstp, key.inode, may_flags, ret);
-	status = nfserr_jukebox;
-	goto out_status;
+	}
+	if (IS_ERR(nf))
+		goto insert_err;
+	nf = nfsd_file_get(nf);
+	if (nf == NULL) {
+		nf = new;
+		goto open_file;
+	}
+	nfsd_file_slab_free(&new->nf_rcu);
 
 wait_for_construction:
 	wait_on_bit(&nf->nf_flags, NFSD_FILE_PENDING, TASK_UNINTERRUPTIBLE);
@@ -1089,11 +1089,11 @@ wait_for_construction:
 	/* Did construction of this file fail? */
 	if (!test_bit(NFSD_FILE_HASHED, &nf->nf_flags)) {
 		trace_nfsd_file_cons_err(rqstp, key.inode, may_flags, nf);
-		if (!open_retry) {
+		if (!retry) {
 			status = nfserr_jukebox;
 			goto out;
 		}
-		open_retry = false;
+		retry = false;
 		nfsd_file_put_noref(nf);
 		goto retry;
 	}
@@ -1141,6 +1141,13 @@ open_file:
 	smp_mb__after_atomic();
 	wake_up_bit(&nf->nf_flags, NFSD_FILE_PENDING);
 	goto out;
+
+insert_err:
+	nfsd_file_slab_free(&new->nf_rcu);
+	trace_nfsd_file_insert_err(rqstp, key.inode, may_flags, PTR_ERR(nf));
+	nf = NULL;
+	status = nfserr_jukebox;
+	goto out_status;
 }
 
 /**
@@ -1182,7 +1189,7 @@ nfsd_file_create(struct svc_rqst *rqstp, struct svc_fh *fhp,
  * scraping this file for info should test the labels to ensure they're
  * getting the correct field.
  */
-int nfsd_file_cache_stats_show(struct seq_file *m, void *v)
+static int nfsd_file_cache_stats_show(struct seq_file *m, void *v)
 {
 	unsigned long releases = 0, pages_flushed = 0, evictions = 0;
 	unsigned long hits = 0, acquisitions = 0;
@@ -1228,4 +1235,9 @@ int nfsd_file_cache_stats_show(struct seq_file *m, void *v)
 		seq_printf(m, "mean age (ms): -\n");
 	seq_printf(m, "pages flushed: %lu\n", pages_flushed);
 	return 0;
+}
+
+int nfsd_file_cache_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, nfsd_file_cache_stats_show, NULL);
 }

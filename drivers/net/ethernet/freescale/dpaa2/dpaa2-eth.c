@@ -4565,7 +4565,8 @@ static void dpaa2_eth_add_ch_napi(struct dpaa2_eth_priv *priv)
 	for (i = 0; i < priv->num_channels; i++) {
 		ch = priv->channel[i];
 		/* NAPI weight *MUST* be a multiple of DPAA2_ETH_STORE_SIZE */
-		netif_napi_add(priv->net_dev, &ch->napi, dpaa2_eth_poll);
+		netif_napi_add(priv->net_dev, &ch->napi, dpaa2_eth_poll,
+			       NAPI_POLL_WEIGHT);
 	}
 }
 

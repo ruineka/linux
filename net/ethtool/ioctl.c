@@ -571,7 +571,6 @@ static int ethtool_get_link_ksettings(struct net_device *dev,
 		= __ETHTOOL_LINK_MODE_MASK_NU32;
 	link_ksettings.base.master_slave_cfg = MASTER_SLAVE_CFG_UNSUPPORTED;
 	link_ksettings.base.master_slave_state = MASTER_SLAVE_STATE_UNSUPPORTED;
-	link_ksettings.base.rate_matching = RATE_MATCH_NONE;
 
 	return store_link_ksettings_for_user(useraddr, &link_ksettings);
 }
@@ -715,16 +714,16 @@ ethtool_get_drvinfo(struct net_device *dev, struct ethtool_devlink_compat *rsp)
 	const struct ethtool_ops *ops = dev->ethtool_ops;
 
 	rsp->info.cmd = ETHTOOL_GDRVINFO;
-	strscpy(rsp->info.version, UTS_RELEASE, sizeof(rsp->info.version));
+	strlcpy(rsp->info.version, UTS_RELEASE, sizeof(rsp->info.version));
 	if (ops->get_drvinfo) {
 		ops->get_drvinfo(dev, &rsp->info);
 	} else if (dev->dev.parent && dev->dev.parent->driver) {
-		strscpy(rsp->info.bus_info, dev_name(dev->dev.parent),
+		strlcpy(rsp->info.bus_info, dev_name(dev->dev.parent),
 			sizeof(rsp->info.bus_info));
-		strscpy(rsp->info.driver, dev->dev.parent->driver->name,
+		strlcpy(rsp->info.driver, dev->dev.parent->driver->name,
 			sizeof(rsp->info.driver));
 	} else if (dev->rtnl_link_ops) {
-		strscpy(rsp->info.driver, dev->rtnl_link_ops->kind,
+		strlcpy(rsp->info.driver, dev->rtnl_link_ops->kind,
 			sizeof(rsp->info.driver));
 	} else {
 		return -EOPNOTSUPP;

@@ -675,11 +675,11 @@ struct drm_mode_fb_cmd {
  *   fetch metadata about an existing frame-buffer.
  *
  * In case of planar formats, this struct allows up to 4 buffer objects with
- * offsets and pitches per plane. The pitch and offset order are dictated by
- * the format FourCC as defined by ``drm_fourcc.h``, e.g. NV12 is described as:
+ * offsets and pitches per plane. The pitch and offset order is dictated by the
+ * format FourCC as defined by ``drm_fourcc.h``, e.g. NV12 is described as:
  *
- *     YUV 4:2:0 image with a plane of 8-bit Y samples followed by an
- *     interleaved U/V plane containing 8-bit 2x2 subsampled colour difference
+ *     YUV 4:2:0 image with a plane of 8 bit Y samples followed by an
+ *     interleaved U/V plane containing 8 bit 2x2 subsampled colour difference
  *     samples.
  *
  * So it would consist of a Y plane at ``offsets[0]`` and a UV plane at
@@ -936,6 +936,17 @@ struct hdr_output_metadata {
 };
 
 #define DRM_MODE_PAGE_FLIP_EVENT 0x01
+/**
+ * DRM_MODE_PAGE_FLIP_ASYNC
+ *
+ * Request that the page-flip is performed as soon as possible, ie. with no
+ * delay due to waiting for vblank. This may cause tearing to be visible on
+ * the screen.
+ *
+ * When used with atomic uAPI, the driver will return an error if the hardware
+ * doesn't support performing an asynchronous page-flip for this update.
+ * User-space should handle this, e.g. by falling back to a regular page-flip.
+ */
 #define DRM_MODE_PAGE_FLIP_ASYNC 0x02
 #define DRM_MODE_PAGE_FLIP_TARGET_ABSOLUTE 0x4
 #define DRM_MODE_PAGE_FLIP_TARGET_RELATIVE 0x8

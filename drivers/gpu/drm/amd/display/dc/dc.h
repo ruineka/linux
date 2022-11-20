@@ -47,7 +47,7 @@ struct aux_payload;
 struct set_config_cmd_payload;
 struct dmub_notification;
 
-#define DC_VER "3.2.207"
+#define DC_VER "3.2.198"
 
 #define MAX_SURFACES 3
 #define MAX_PLANES 6
@@ -401,14 +401,10 @@ struct dc_config {
 	uint8_t  vblank_alignment_max_frame_time_diff;
 	bool is_asymmetric_memory;
 	bool is_single_rank_dimm;
-	bool is_vmin_only_asic;
 	bool use_pipe_ctx_sync_logic;
 	bool ignore_dpref_ss;
 	bool enable_mipi_converter_optimization;
 	bool use_default_clock_table;
-	bool force_bios_enable_lttpr;
-	uint8_t force_bios_fixed_vs;
-
 };
 
 enum visual_confirm {
@@ -420,7 +416,6 @@ enum visual_confirm {
 	VISUAL_CONFIRM_SWAPCHAIN = 6,
 	VISUAL_CONFIRM_FAMS = 7,
 	VISUAL_CONFIRM_SWIZZLE = 9,
-	VISUAL_CONFIRM_SUBVP = 14,
 };
 
 enum dc_psr_power_opts {
@@ -806,6 +801,8 @@ struct dc_debug_options {
 	bool validate_dml_output;
 	bool enable_dmcub_surface_flip;
 	bool usbc_combo_phy_reset_wa;
+	bool disable_dsc_edp;
+	unsigned int  force_dsc_edp_policy;
 	bool enable_dram_clock_change_one_display_vactive;
 	/* TODO - remove once tested */
 	bool legacy_dp2_lt;
@@ -821,6 +818,7 @@ struct dc_debug_options {
 	/* Enable dmub aux for legacy ddc */
 	bool enable_dmub_aux_for_legacy_ddc;
 	bool disable_fams;
+	bool optimize_edp_link_rate; /* eDP ILR */
 	/* FEC/PSR1 sequence enable delay in 100us */
 	uint8_t fec_enable_delay_in100us;
 	bool enable_driver_sequence_debug;
@@ -828,14 +826,12 @@ struct dc_debug_options {
 	int crb_alloc_policy_min_disp_count;
 	bool disable_z10;
 	bool enable_z9_disable_interface;
+	bool enable_sw_cntl_psr;
 	union dpia_debug_options dpia_debug;
 	bool disable_fixed_vs_aux_timeout_wa;
 	bool force_disable_subvp;
 	bool force_subvp_mclk_switch;
 	bool allow_sw_cursor_fallback;
-	unsigned int force_subvp_num_ways;
-	unsigned int force_mall_ss_num_ways;
-	bool alloc_extra_way_for_cursor;
 	bool force_usr_allow;
 	/* uses value at boot and disables switch */
 	bool disable_dtb_ref_clk_switch;
@@ -849,11 +845,7 @@ struct dc_debug_options {
 	bool use_legacy_soc_bb_mechanism;
 	bool exit_idle_opt_for_cursor_updates;
 	bool enable_single_display_2to1_odm_policy;
-	bool enable_double_buffered_dsc_pg_support;
 	bool enable_dp_dig_pixel_rate_div_policy;
-	enum lttpr_mode lttpr_mode_override;
-	unsigned int dsc_delay_factor_wa_x1000;
-	unsigned int min_prefetch_in_strobe_ns;
 };
 
 struct gpu_info_soc_bounding_box_v1_0;
@@ -1123,7 +1115,6 @@ union surface_update_flags {
 		uint32_t clock_change:1;
 		uint32_t stereo_format_change:1;
 		uint32_t lut_3d:1;
-		uint32_t tmz_changed:1;
 		uint32_t full_update:1;
 	} bits;
 
@@ -1192,9 +1183,6 @@ struct dc_plane_state {
 	/* private to dc_surface.c */
 	enum dc_irq_source irq_source;
 	struct kref refcount;
-	struct tg_color visual_confirm_color;
-
-	bool is_statically_allocated;
 };
 
 struct dc_plane_info {
@@ -1613,9 +1601,6 @@ enum dc_status dc_process_dmub_set_mst_slots(const struct dc *dc,
 				uint32_t link_index,
 				uint8_t mst_alloc_slots,
 				uint8_t *mst_slots_in_use);
-
-void dc_process_dmub_dpia_hpd_int_enable(const struct dc *dc,
-				uint32_t hpd_int_enable);
 
 /*******************************************************************************
  * DSC Interfaces

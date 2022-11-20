@@ -30,11 +30,8 @@
 #include <asm/trace.h>
 #include <asm/uaccess.h>
 #include <asm/ultravisor.h>
-#include <asm/set_memory.h>
 
 #include <trace/events/thp.h>
-
-#include <mm/mmu_decl.h>
 
 unsigned int mmu_base_pid;
 unsigned long radix_mem_block_size __ro_after_init;
@@ -231,7 +228,7 @@ void radix__mark_rodata_ro(void)
 	unsigned long start, end;
 
 	start = (unsigned long)_stext;
-	end = (unsigned long)__end_rodata;
+	end = (unsigned long)__init_begin;
 
 	radix__change_memory_range(start, end, _PAGE_WRITE);
 }
@@ -262,24 +259,21 @@ print_mapping(unsigned long start, unsigned long end, unsigned long size, bool e
 static unsigned long next_boundary(unsigned long addr, unsigned long end)
 {
 #ifdef CONFIG_STRICT_KERNEL_RWX
-	if (addr < __pa_symbol(__srwx_boundary))
-		return __pa_symbol(__srwx_boundary);
+	if (addr < __pa_symbol(__init_begin))
+		return __pa_symbol(__init_begin);
 #endif
 	return end;
 }
 
 static int __meminit create_physical_mapping(unsigned long start,
 					     unsigned long end,
+					     unsigned long max_mapping_size,
 					     int nid, pgprot_t _prot)
 {
 	unsigned long vaddr, addr, mapping_size = 0;
 	bool prev_exec, exec = false;
 	pgprot_t prot;
 	int psize;
-	unsigned long max_mapping_size = radix_mem_block_size;
-
-	if (debug_pagealloc_enabled_or_kfence())
-		max_mapping_size = PAGE_SIZE;
 
 	start = ALIGN(start, PAGE_SIZE);
 	end   = ALIGN_DOWN(end, PAGE_SIZE);
@@ -358,6 +352,7 @@ static void __init radix_init_pgtable(void)
 		}
 
 		WARN_ON(create_physical_mapping(start, end,
+						radix_mem_block_size,
 						-1, PAGE_KERNEL));
 	}
 
@@ -855,7 +850,7 @@ int __meminit radix__create_section_mapping(unsigned long start,
 	}
 
 	return create_physical_mapping(__pa(start), __pa(end),
-				       nid, prot);
+				       radix_mem_block_size, nid, prot);
 }
 
 int __meminit radix__remove_section_mapping(unsigned long start, unsigned long end)
@@ -901,17 +896,10 @@ void __meminit radix__vmemmap_remove_mapping(unsigned long start, unsigned long 
 #endif
 #endif
 
-#if defined(CONFIG_DEBUG_PAGEALLOC) || defined(CONFIG_KFENCE)
+#ifdef CONFIG_DEBUG_PAGEALLOC
 void radix__kernel_map_pages(struct page *page, int numpages, int enable)
 {
-	unsigned long addr;
-
-	addr = (unsigned long)page_address(page);
-
-	if (enable)
-		set_memory_p(addr, numpages);
-	else
-		set_memory_np(addr, numpages);
+	pr_warn_once("DEBUG_PAGEALLOC not supported in radix mode\n");
 }
 #endif
 

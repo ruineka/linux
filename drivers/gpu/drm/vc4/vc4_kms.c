@@ -18,6 +18,7 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_plane_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 
@@ -197,8 +198,8 @@ vc4_hvs_get_new_global_state(struct drm_atomic_state *state)
 	struct drm_private_state *priv_state;
 
 	priv_state = drm_atomic_get_new_private_obj_state(state, &vc4->hvs_channels);
-	if (!priv_state)
-		return ERR_PTR(-EINVAL);
+	if (IS_ERR(priv_state))
+		return ERR_CAST(priv_state);
 
 	return to_vc4_hvs_state(priv_state);
 }
@@ -210,8 +211,8 @@ vc4_hvs_get_old_global_state(struct drm_atomic_state *state)
 	struct drm_private_state *priv_state;
 
 	priv_state = drm_atomic_get_old_private_obj_state(state, &vc4->hvs_channels);
-	if (!priv_state)
-		return ERR_PTR(-EINVAL);
+	if (IS_ERR(priv_state))
+		return ERR_CAST(priv_state);
 
 	return to_vc4_hvs_state(priv_state);
 }
@@ -1047,6 +1048,7 @@ int vc4_kms_load(struct drm_device *dev)
 	dev->mode_config.helper_private = &vc4_mode_config_helpers;
 	dev->mode_config.preferred_depth = 24;
 	dev->mode_config.async_page_flip = true;
+	dev->mode_config.atomic_async_page_flip_not_supported = true;
 
 	ret = vc4_ctm_obj_init(vc4);
 	if (ret)

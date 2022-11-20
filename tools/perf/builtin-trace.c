@@ -615,8 +615,11 @@ bool strarray__strtoul_flags(struct strarray *sa, char *bf, size_t size, u64 *re
 		if (isalpha(*tok) || *tok == '_') {
 			if (!strarray__strtoul(sa, tok, toklen, &val))
 				return false;
-		} else
-			val = strtoul(tok, NULL, 0);
+		} else {
+			bool is_hexa = tok[0] == 0 && (tok[1] = 'x' || tok[1] == 'X');
+
+			val = strtoul(tok, NULL, is_hexa ? 16 : 0);
+		}
 
 		*ret |= (1 << (val - 1));
 
@@ -2170,10 +2173,13 @@ static void thread__update_stats(struct thread *thread, struct thread_trace *ttr
 
 	stats = inode->priv;
 	if (stats == NULL) {
-		stats = zalloc(sizeof(*stats));
+		stats = malloc(sizeof(*stats));
 		if (stats == NULL)
 			return;
 
+		stats->nr_failures = 0;
+		stats->max_errno   = 0;
+		stats->errnos	   = NULL;
 		init_stats(&stats->stats);
 		inode->priv = stats;
 	}
@@ -2756,7 +2762,11 @@ static size_t trace__fprintf_tp_fields(struct trace *trace, struct evsel *evsel,
 
 		printed += scnprintf(bf + printed, size - printed, "%s", printed ? ", " : "");
 
-		if (trace->show_arg_names)
+		/*
+		 * XXX Perhaps we should have a show_tp_arg_names,
+		 * leaving show_arg_names just for syscalls?
+		 */
+		if (1 || trace->show_arg_names)
 			printed += scnprintf(bf + printed, size - printed, "%s: ", field->name);
 
 		printed += syscall_arg_fmt__scnprintf_val(arg, bf + printed, size - printed, &syscall_arg, val);

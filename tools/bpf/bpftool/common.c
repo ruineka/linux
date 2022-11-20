@@ -725,7 +725,6 @@ print_all_levels(__maybe_unused enum libbpf_print_level level,
 
 static int prog_fd_by_nametag(void *nametag, int **fds, bool tag)
 {
-	char prog_name[MAX_PROG_FULL_NAME];
 	unsigned int id = 0;
 	int fd, nb_fds = 0;
 	void *tmp;
@@ -758,18 +757,10 @@ static int prog_fd_by_nametag(void *nametag, int **fds, bool tag)
 			goto err_close_fd;
 		}
 
-		if (tag && memcmp(nametag, info.tag, BPF_TAG_SIZE)) {
+		if ((tag && memcmp(nametag, info.tag, BPF_TAG_SIZE)) ||
+		    (!tag && strncmp(nametag, info.name, BPF_OBJ_NAME_LEN))) {
 			close(fd);
 			continue;
-		}
-
-		if (!tag) {
-			get_prog_full_name(&info, fd, prog_name,
-					   sizeof(prog_name));
-			if (strncmp(nametag, prog_name, sizeof(prog_name))) {
-				close(fd);
-				continue;
-			}
 		}
 
 		if (nb_fds > 0) {
@@ -832,7 +823,7 @@ int prog_parse_fds(int *argc, char ***argv, int **fds)
 		NEXT_ARGP();
 
 		name = **argv;
-		if (strlen(name) > MAX_PROG_FULL_NAME - 1) {
+		if (strlen(name) > BPF_OBJ_NAME_LEN - 1) {
 			p_err("can't parse name");
 			return -1;
 		}

@@ -240,6 +240,11 @@ void loongson3_smp_finish(void)
 
 #ifdef CONFIG_HOTPLUG_CPU
 
+static bool io_master(int cpu)
+{
+	return test_bit(cpu, &loongson_sysconf.cores_io_master);
+}
+
 int loongson3_cpu_disable(void)
 {
 	unsigned long flags;

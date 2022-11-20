@@ -387,19 +387,19 @@
 			#interrupt-cells = <2>;
 
 			sdc2_off_state: sdc2-off-state {
-				clk-pins {
+				clk {
 					pins = "sdc2_clk";
 					drive-strength = <2>;
 					bias-disable;
 				};
 
-				cmd-pins {
+				cmd {
 					pins = "sdc2_cmd";
 					drive-strength = <2>;
 					bias-pull-up;
 				};
 
-				data-pins {
+				data {
 					pins = "sdc2_data";
 					drive-strength = <2>;
 					bias-pull-up;
@@ -413,13 +413,13 @@
 					bias-disable;
 				};
 
-				cmd-pins-pins {
+				cmd {
 					pins = "sdc2_cmd";
 					drive-strength = <10>;
 					bias-pull-up;
 				};
 
-				data-pins {
+				data {
 					pins = "sdc2_data";
 					drive-strength = <10>;
 					bias-pull-up;

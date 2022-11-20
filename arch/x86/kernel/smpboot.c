@@ -56,6 +56,7 @@
 #include <linux/numa.h>
 #include <linux/pgtable.h>
 #include <linux/overflow.h>
+#include <linux/clocksource.h>
 
 #include <asm/acpi.h>
 #include <asm/desc.h>
@@ -1316,7 +1317,7 @@ static void __init smp_sanity_check(void)
 			nr++;
 		}
 
-		set_nr_cpu_ids(8);
+		nr_cpu_ids = 8;
 	}
 #endif
 
@@ -1444,6 +1445,7 @@ void arch_thaw_secondary_cpus_begin(void)
 
 void arch_thaw_secondary_cpus_end(void)
 {
+	clocksource_touch_watchdog();
 	mtrr_aps_init();
 }
 
@@ -1476,6 +1478,8 @@ void __init calculate_max_logical_packages(void)
 void __init native_smp_cpus_done(unsigned int max_cpus)
 {
 	pr_debug("Boot done\n");
+
+	clocksource_touch_watchdog();
 
 	calculate_max_logical_packages();
 
@@ -1569,7 +1573,7 @@ __init void prefill_possible_map(void)
 		possible = i;
 	}
 
-	set_nr_cpu_ids(possible);
+	nr_cpu_ids = possible;
 
 	pr_info("Allowing %d CPUs, %d hotplug CPUs\n",
 		possible, max_t(int, possible - num_processors, 0));

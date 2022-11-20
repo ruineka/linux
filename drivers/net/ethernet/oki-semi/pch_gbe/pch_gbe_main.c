@@ -2516,7 +2516,8 @@ static int pch_gbe_probe(struct pci_dev *pdev,
 
 	netdev->netdev_ops = &pch_gbe_netdev_ops;
 	netdev->watchdog_timeo = PCH_GBE_WATCHDOG_PERIOD;
-	netif_napi_add(netdev, &adapter->napi, pch_gbe_napi_poll);
+	netif_napi_add(netdev, &adapter->napi,
+		       pch_gbe_napi_poll, NAPI_POLL_WEIGHT);
 	netdev->hw_features = NETIF_F_RXCSUM |
 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
 	netdev->features = netdev->hw_features;

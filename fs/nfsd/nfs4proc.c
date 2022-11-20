@@ -141,6 +141,7 @@ fh_dup2(struct svc_fh *dst, struct svc_fh *src)
 static __be32
 do_open_permission(struct svc_rqst *rqstp, struct svc_fh *current_fh, struct nfsd4_open *open, int accmode)
 {
+	__be32 status;
 
 	if (open->op_truncate &&
 		!(open->op_share_access & NFS4_SHARE_ACCESS_WRITE))
@@ -155,7 +156,9 @@ do_open_permission(struct svc_rqst *rqstp, struct svc_fh *current_fh, struct nfs
 	if (open->op_share_deny & NFS4_SHARE_DENY_READ)
 		accmode |= NFSD_MAY_WRITE;
 
-	return fh_verify(rqstp, current_fh, S_IFREG, accmode);
+	status = fh_verify(rqstp, current_fh, S_IFREG, accmode);
+
+	return status;
 }
 
 static __be32 nfsd_check_obj_isreg(struct svc_fh *fh)
@@ -451,6 +454,7 @@ static __be32
 do_open_fhandle(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate, struct nfsd4_open *open)
 {
 	struct svc_fh *current_fh = &cstate->current_fh;
+	__be32 status;
 	int accmode = 0;
 
 	/* We don't know the target directory, and therefore can not
@@ -475,7 +479,9 @@ do_open_fhandle(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate, str
 	if (open->op_claim_type == NFS4_OPEN_CLAIM_DELEG_CUR_FH)
 		accmode = NFSD_MAY_OWNER_OVERRIDE;
 
-	return do_open_permission(rqstp, current_fh, open, accmode);
+	status = do_open_permission(rqstp, current_fh, open, accmode);
+
+	return status;
 }
 
 static void
@@ -662,9 +668,11 @@ static __be32
 nfsd4_putrootfh(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 		union nfsd4_op_u *u)
 {
-	fh_put(&cstate->current_fh);
+	__be32 status;
 
-	return exp_pseudoroot(rqstp, &cstate->current_fh);
+	fh_put(&cstate->current_fh);
+	status = exp_pseudoroot(rqstp, &cstate->current_fh);
+	return status;
 }
 
 static __be32
@@ -1335,7 +1343,7 @@ try_again:
 		return 0;
 	}
 	if (work) {
-		strscpy(work->nsui_ipaddr, ipaddr, sizeof(work->nsui_ipaddr) - 1);
+		strlcpy(work->nsui_ipaddr, ipaddr, sizeof(work->nsui_ipaddr) - 1);
 		refcount_set(&work->nsui_refcnt, 2);
 		work->nsui_busy = true;
 		list_add_tail(&work->nsui_list, &nn->nfsd_ssc_mount_list);
@@ -1613,10 +1621,6 @@ static void nfsd4_cb_offload_release(struct nfsd4_callback *cb)
 static int nfsd4_cb_offload_done(struct nfsd4_callback *cb,
 				 struct rpc_task *task)
 {
-	struct nfsd4_cb_offload *cbo =
-		container_of(cb, struct nfsd4_cb_offload, co_cb);
-
-	trace_nfsd_cb_offload_done(&cbo->co_res.cb_stateid, task);
 	return 1;
 }
 
@@ -1764,13 +1768,7 @@ static int nfsd4_do_async_copy(void *data)
 		filp = nfs42_ssc_open(copy->ss_mnt, &copy->c_fh,
 				      &copy->stateid);
 		if (IS_ERR(filp)) {
-			switch (PTR_ERR(filp)) {
-			case -EBADF:
-				nfserr = nfserr_wrong_type;
-				break;
-			default:
-				nfserr = nfserr_offload_denied;
-			}
+			nfserr = nfserr_offload_denied;
 			nfsd4_interssc_disconnect(copy->ss_mnt);
 			goto do_callback;
 		}
@@ -1828,7 +1826,7 @@ nfsd4_copy(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 		if (!nfs4_init_copy_state(nn, copy))
 			goto out_err;
 		refcount_set(&async_copy->refcount, 1);
-		memcpy(&copy->cp_res.cb_stateid, &copy->cp_stateid.cs_stid,
+		memcpy(&copy->cp_res.cb_stateid, &copy->cp_stateid.stid,
 			sizeof(copy->cp_res.cb_stateid));
 		dup_copy_fields(copy, async_copy);
 		async_copy->copy_task = kthread_create(nfsd4_do_async_copy,
@@ -1864,7 +1862,7 @@ find_async_copy(struct nfs4_client *clp, stateid_t *stateid)
 
 	spin_lock(&clp->async_lock);
 	list_for_each_entry(copy, &clp->async_copies, copies) {
-		if (memcmp(&copy->cp_stateid.cs_stid, stateid, NFS4_STATEID_SIZE))
+		if (memcmp(&copy->cp_stateid.stid, stateid, NFS4_STATEID_SIZE))
 			continue;
 		refcount_inc(&copy->refcount);
 		spin_unlock(&clp->async_lock);
@@ -1918,7 +1916,7 @@ nfsd4_copy_notify(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	cps = nfs4_alloc_init_cpntf_state(nn, stid);
 	if (!cps)
 		goto out;
-	memcpy(&cn->cpn_cnr_stateid, &cps->cp_stateid.cs_stid, sizeof(stateid_t));
+	memcpy(&cn->cpn_cnr_stateid, &cps->cp_stateid.stid, sizeof(stateid_t));
 	memcpy(&cps->cp_p_stateid, &stid->sc_stateid, sizeof(stateid_t));
 	memcpy(&cps->cp_p_clid, &clp->cl_clientid, sizeof(clientid_t));
 
@@ -2647,7 +2645,7 @@ nfsd4_proc_compound(struct svc_rqst *rqstp)
 
 	rqstp->rq_lease_breaker = (void **)&cstate->clp;
 
-	trace_nfsd_compound(rqstp, args->tag, args->taglen, args->client_opcnt);
+	trace_nfsd_compound(rqstp, args->client_opcnt);
 	while (!status && resp->opcnt < args->opcnt) {
 		op = &args->ops[resp->opcnt++];
 
@@ -2771,49 +2769,28 @@ out:
 
 #define op_encode_channel_attrs_maxsz	(6 + 1 + 1)
 
-/*
- * The _rsize() helpers are invoked by the NFSv4 COMPOUND decoder, which
- * is called before sunrpc sets rq_res.buflen. Thus we have to compute
- * the maximum payload size here, based on transport limits and the size
- * of the remaining space in the rq_pages array.
- */
-static u32 nfsd4_max_payload(const struct svc_rqst *rqstp)
-{
-	u32 buflen;
-
-	buflen = (rqstp->rq_page_end - rqstp->rq_next_page) * PAGE_SIZE;
-	buflen -= rqstp->rq_auth_slack;
-	buflen -= rqstp->rq_res.head[0].iov_len;
-	return min_t(u32, buflen, svc_max_payload(rqstp));
-}
-
-static u32 nfsd4_only_status_rsize(const struct svc_rqst *rqstp,
-				   const struct nfsd4_op *op)
+static inline u32 nfsd4_only_status_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size) * sizeof(__be32);
 }
 
-static u32 nfsd4_status_stateid_rsize(const struct svc_rqst *rqstp,
-				      const struct nfsd4_op *op)
+static inline u32 nfsd4_status_stateid_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_stateid_maxsz)* sizeof(__be32);
 }
 
-static u32 nfsd4_access_rsize(const struct svc_rqst *rqstp,
-			      const struct nfsd4_op *op)
+static inline u32 nfsd4_access_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	/* ac_supported, ac_resp_access */
 	return (op_encode_hdr_size + 2)* sizeof(__be32);
 }
 
-static u32 nfsd4_commit_rsize(const struct svc_rqst *rqstp,
-			      const struct nfsd4_op *op)
+static inline u32 nfsd4_commit_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_verifier_maxsz) * sizeof(__be32);
 }
 
-static u32 nfsd4_create_rsize(const struct svc_rqst *rqstp,
-			      const struct nfsd4_op *op)
+static inline u32 nfsd4_create_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_change_info_maxsz
 		+ nfs4_fattr_bitmap_maxsz) * sizeof(__be32);
@@ -2824,17 +2801,17 @@ static u32 nfsd4_create_rsize(const struct svc_rqst *rqstp,
  * the op prematurely if the estimate is too large.  We may turn off splice
  * reads unnecessarily.
  */
-static u32 nfsd4_getattr_rsize(const struct svc_rqst *rqstp,
-			       const struct nfsd4_op *op)
+static inline u32 nfsd4_getattr_rsize(struct svc_rqst *rqstp,
+				      struct nfsd4_op *op)
 {
-	const u32 *bmap = op->u.getattr.ga_bmval;
+	u32 *bmap = op->u.getattr.ga_bmval;
 	u32 bmap0 = bmap[0], bmap1 = bmap[1], bmap2 = bmap[2];
 	u32 ret = 0;
 
 	if (bmap0 & FATTR4_WORD0_ACL)
-		return nfsd4_max_payload(rqstp);
+		return svc_max_payload(rqstp);
 	if (bmap0 & FATTR4_WORD0_FS_LOCATIONS)
-		return nfsd4_max_payload(rqstp);
+		return svc_max_payload(rqstp);
 
 	if (bmap1 & FATTR4_WORD1_OWNER) {
 		ret += IDMAP_NAMESZ + 4;
@@ -2862,28 +2839,24 @@ static u32 nfsd4_getattr_rsize(const struct svc_rqst *rqstp,
 	return ret;
 }
 
-static u32 nfsd4_getfh_rsize(const struct svc_rqst *rqstp,
-			     const struct nfsd4_op *op)
+static inline u32 nfsd4_getfh_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + 1) * sizeof(__be32) + NFS4_FHSIZE;
 }
 
-static u32 nfsd4_link_rsize(const struct svc_rqst *rqstp,
-			    const struct nfsd4_op *op)
+static inline u32 nfsd4_link_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_change_info_maxsz)
 		* sizeof(__be32);
 }
 
-static u32 nfsd4_lock_rsize(const struct svc_rqst *rqstp,
-			    const struct nfsd4_op *op)
+static inline u32 nfsd4_lock_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_lock_denied_maxsz)
 		* sizeof(__be32);
 }
 
-static u32 nfsd4_open_rsize(const struct svc_rqst *rqstp,
-			    const struct nfsd4_op *op)
+static inline u32 nfsd4_open_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_stateid_maxsz
 		+ op_encode_change_info_maxsz + 1
@@ -2891,18 +2864,20 @@ static u32 nfsd4_open_rsize(const struct svc_rqst *rqstp,
 		+ op_encode_delegation_maxsz) * sizeof(__be32);
 }
 
-static u32 nfsd4_read_rsize(const struct svc_rqst *rqstp,
-			    const struct nfsd4_op *op)
+static inline u32 nfsd4_read_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
-	u32 rlen = min(op->u.read.rd_length, nfsd4_max_payload(rqstp));
+	u32 maxcount = 0, rlen = 0;
+
+	maxcount = svc_max_payload(rqstp);
+	rlen = min(op->u.read.rd_length, maxcount);
 
 	return (op_encode_hdr_size + 2 + XDR_QUADLEN(rlen)) * sizeof(__be32);
 }
 
-static u32 nfsd4_read_plus_rsize(const struct svc_rqst *rqstp,
-				 const struct nfsd4_op *op)
+static inline u32 nfsd4_read_plus_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
-	u32 rlen = min(op->u.read.rd_length, nfsd4_max_payload(rqstp));
+	u32 maxcount = svc_max_payload(rqstp);
+	u32 rlen = min(op->u.read.rd_length, maxcount);
 	/*
 	 * If we detect that the file changed during hole encoding, then we
 	 * recover by encoding the remaining reply as data. This means we need
@@ -2913,77 +2888,70 @@ static u32 nfsd4_read_plus_rsize(const struct svc_rqst *rqstp,
 	return (op_encode_hdr_size + 2 + seg_len + XDR_QUADLEN(rlen)) * sizeof(__be32);
 }
 
-static u32 nfsd4_readdir_rsize(const struct svc_rqst *rqstp,
-			       const struct nfsd4_op *op)
+static inline u32 nfsd4_readdir_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
-	u32 rlen = min(op->u.readdir.rd_maxcount, nfsd4_max_payload(rqstp));
+	u32 maxcount = 0, rlen = 0;
+
+	maxcount = svc_max_payload(rqstp);
+	rlen = min(op->u.readdir.rd_maxcount, maxcount);
 
 	return (op_encode_hdr_size + op_encode_verifier_maxsz +
 		XDR_QUADLEN(rlen)) * sizeof(__be32);
 }
 
-static u32 nfsd4_readlink_rsize(const struct svc_rqst *rqstp,
-				const struct nfsd4_op *op)
+static inline u32 nfsd4_readlink_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + 1) * sizeof(__be32) + PAGE_SIZE;
 }
 
-static u32 nfsd4_remove_rsize(const struct svc_rqst *rqstp,
-			      const struct nfsd4_op *op)
+static inline u32 nfsd4_remove_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_change_info_maxsz)
 		* sizeof(__be32);
 }
 
-static u32 nfsd4_rename_rsize(const struct svc_rqst *rqstp,
-			      const struct nfsd4_op *op)
+static inline u32 nfsd4_rename_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_change_info_maxsz
 		+ op_encode_change_info_maxsz) * sizeof(__be32);
 }
 
-static u32 nfsd4_sequence_rsize(const struct svc_rqst *rqstp,
-				const struct nfsd4_op *op)
+static inline u32 nfsd4_sequence_rsize(struct svc_rqst *rqstp,
+				       struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size
 		+ XDR_QUADLEN(NFS4_MAX_SESSIONID_LEN) + 5) * sizeof(__be32);
 }
 
-static u32 nfsd4_test_stateid_rsize(const struct svc_rqst *rqstp,
-				    const struct nfsd4_op *op)
+static inline u32 nfsd4_test_stateid_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + 1 + op->u.test_stateid.ts_num_ids)
 		* sizeof(__be32);
 }
 
-static u32 nfsd4_setattr_rsize(const struct svc_rqst *rqstp,
-			       const struct nfsd4_op *op)
+static inline u32 nfsd4_setattr_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + nfs4_fattr_bitmap_maxsz) * sizeof(__be32);
 }
 
-static u32 nfsd4_secinfo_rsize(const struct svc_rqst *rqstp,
-			       const struct nfsd4_op *op)
+static inline u32 nfsd4_secinfo_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + RPC_AUTH_MAXFLAVOR *
 		(4 + XDR_QUADLEN(GSS_OID_MAX_LEN))) * sizeof(__be32);
 }
 
-static u32 nfsd4_setclientid_rsize(const struct svc_rqst *rqstp,
-				   const struct nfsd4_op *op)
+static inline u32 nfsd4_setclientid_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + 2 + XDR_QUADLEN(NFS4_VERIFIER_SIZE)) *
 								sizeof(__be32);
 }
 
-static u32 nfsd4_write_rsize(const struct svc_rqst *rqstp,
-			     const struct nfsd4_op *op)
+static inline u32 nfsd4_write_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + 2 + op_encode_verifier_maxsz) * sizeof(__be32);
 }
 
-static u32 nfsd4_exchange_id_rsize(const struct svc_rqst *rqstp,
-				   const struct nfsd4_op *op)
+static inline u32 nfsd4_exchange_id_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + 2 + 1 + /* eir_clientid, eir_sequenceid */\
 		1 + 1 + /* eir_flags, spr_how */\
@@ -2997,16 +2965,14 @@ static u32 nfsd4_exchange_id_rsize(const struct svc_rqst *rqstp,
 		0 /* ignored eir_server_impl_id contents */) * sizeof(__be32);
 }
 
-static u32 nfsd4_bind_conn_to_session_rsize(const struct svc_rqst *rqstp,
-					    const struct nfsd4_op *op)
+static inline u32 nfsd4_bind_conn_to_session_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + \
 		XDR_QUADLEN(NFS4_MAX_SESSIONID_LEN) + /* bctsr_sessid */\
 		2 /* bctsr_dir, use_conn_in_rdma_mode */) * sizeof(__be32);
 }
 
-static u32 nfsd4_create_session_rsize(const struct svc_rqst *rqstp,
-				      const struct nfsd4_op *op)
+static inline u32 nfsd4_create_session_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + \
 		XDR_QUADLEN(NFS4_MAX_SESSIONID_LEN) + /* sessionid */\
@@ -3015,8 +2981,7 @@ static u32 nfsd4_create_session_rsize(const struct svc_rqst *rqstp,
 		op_encode_channel_attrs_maxsz) * sizeof(__be32);
 }
 
-static u32 nfsd4_copy_rsize(const struct svc_rqst *rqstp,
-			    const struct nfsd4_op *op)
+static inline u32 nfsd4_copy_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size +
 		1 /* wr_callback */ +
@@ -3028,16 +2993,16 @@ static u32 nfsd4_copy_rsize(const struct svc_rqst *rqstp,
 		1 /* cr_synchronous */) * sizeof(__be32);
 }
 
-static u32 nfsd4_offload_status_rsize(const struct svc_rqst *rqstp,
-				      const struct nfsd4_op *op)
+static inline u32 nfsd4_offload_status_rsize(struct svc_rqst *rqstp,
+					     struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size +
 		2 /* osr_count */ +
 		1 /* osr_complete<1> optional 0 for now */) * sizeof(__be32);
 }
 
-static u32 nfsd4_copy_notify_rsize(const struct svc_rqst *rqstp,
-				   const struct nfsd4_op *op)
+static inline u32 nfsd4_copy_notify_rsize(struct svc_rqst *rqstp,
+					struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size +
 		3 /* cnr_lease_time */ +
@@ -3052,10 +3017,12 @@ static u32 nfsd4_copy_notify_rsize(const struct svc_rqst *rqstp,
 }
 
 #ifdef CONFIG_NFSD_PNFS
-static u32 nfsd4_getdeviceinfo_rsize(const struct svc_rqst *rqstp,
-				     const struct nfsd4_op *op)
+static inline u32 nfsd4_getdeviceinfo_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
-	u32 rlen = min(op->u.getdeviceinfo.gd_maxcount, nfsd4_max_payload(rqstp));
+	u32 maxcount = 0, rlen = 0;
+
+	maxcount = svc_max_payload(rqstp);
+	rlen = min(op->u.getdeviceinfo.gd_maxcount, maxcount);
 
 	return (op_encode_hdr_size +
 		1 /* gd_layout_type*/ +
@@ -3068,8 +3035,7 @@ static u32 nfsd4_getdeviceinfo_rsize(const struct svc_rqst *rqstp,
  * so we need to define an arbitrary upper bound here.
  */
 #define MAX_LAYOUT_SIZE		128
-static u32 nfsd4_layoutget_rsize(const struct svc_rqst *rqstp,
-				 const struct nfsd4_op *op)
+static inline u32 nfsd4_layoutget_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size +
 		1 /* logr_return_on_close */ +
@@ -3078,16 +3044,14 @@ static u32 nfsd4_layoutget_rsize(const struct svc_rqst *rqstp,
 		MAX_LAYOUT_SIZE) * sizeof(__be32);
 }
 
-static u32 nfsd4_layoutcommit_rsize(const struct svc_rqst *rqstp,
-				    const struct nfsd4_op *op)
+static inline u32 nfsd4_layoutcommit_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size +
 		1 /* locr_newsize */ +
 		2 /* ns_size */) * sizeof(__be32);
 }
 
-static u32 nfsd4_layoutreturn_rsize(const struct svc_rqst *rqstp,
-				    const struct nfsd4_op *op)
+static inline u32 nfsd4_layoutreturn_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size +
 		1 /* lrs_stateid */ +
@@ -3096,36 +3060,41 @@ static u32 nfsd4_layoutreturn_rsize(const struct svc_rqst *rqstp,
 #endif /* CONFIG_NFSD_PNFS */
 
 
-static u32 nfsd4_seek_rsize(const struct svc_rqst *rqstp,
-			    const struct nfsd4_op *op)
+static inline u32 nfsd4_seek_rsize(struct svc_rqst *rqstp, struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + 3) * sizeof(__be32);
 }
 
-static u32 nfsd4_getxattr_rsize(const struct svc_rqst *rqstp,
-				const struct nfsd4_op *op)
+static inline u32 nfsd4_getxattr_rsize(struct svc_rqst *rqstp,
+				       struct nfsd4_op *op)
 {
-	u32 rlen = min_t(u32, XATTR_SIZE_MAX, nfsd4_max_payload(rqstp));
+	u32 maxcount, rlen;
+
+	maxcount = svc_max_payload(rqstp);
+	rlen = min_t(u32, XATTR_SIZE_MAX, maxcount);
 
 	return (op_encode_hdr_size + 1 + XDR_QUADLEN(rlen)) * sizeof(__be32);
 }
 
-static u32 nfsd4_setxattr_rsize(const struct svc_rqst *rqstp,
-				const struct nfsd4_op *op)
+static inline u32 nfsd4_setxattr_rsize(struct svc_rqst *rqstp,
+				       struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_change_info_maxsz)
 		* sizeof(__be32);
 }
-static u32 nfsd4_listxattrs_rsize(const struct svc_rqst *rqstp,
-				  const struct nfsd4_op *op)
+static inline u32 nfsd4_listxattrs_rsize(struct svc_rqst *rqstp,
+					 struct nfsd4_op *op)
 {
-	u32 rlen = min(op->u.listxattrs.lsxa_maxcount, nfsd4_max_payload(rqstp));
+	u32 maxcount, rlen;
+
+	maxcount = svc_max_payload(rqstp);
+	rlen = min(op->u.listxattrs.lsxa_maxcount, maxcount);
 
 	return (op_encode_hdr_size + 4 + XDR_QUADLEN(rlen)) * sizeof(__be32);
 }
 
-static u32 nfsd4_removexattr_rsize(const struct svc_rqst *rqstp,
-				   const struct nfsd4_op *op)
+static inline u32 nfsd4_removexattr_rsize(struct svc_rqst *rqstp,
+					  struct nfsd4_op *op)
 {
 	return (op_encode_hdr_size + op_encode_change_info_maxsz)
 		* sizeof(__be32);
@@ -3614,7 +3583,6 @@ static const struct svc_procedure nfsd_procedures4[2] = {
 		.pc_decode = nfssvc_decode_voidarg,
 		.pc_encode = nfssvc_encode_voidres,
 		.pc_argsize = sizeof(struct nfsd_voidargs),
-		.pc_argzero = sizeof(struct nfsd_voidargs),
 		.pc_ressize = sizeof(struct nfsd_voidres),
 		.pc_cachetype = RC_NOCACHE,
 		.pc_xdrressize = 1,
@@ -3625,7 +3593,6 @@ static const struct svc_procedure nfsd_procedures4[2] = {
 		.pc_decode = nfs4svc_decode_compoundargs,
 		.pc_encode = nfs4svc_encode_compoundres,
 		.pc_argsize = sizeof(struct nfsd4_compoundargs),
-		.pc_argzero = offsetof(struct nfsd4_compoundargs, iops),
 		.pc_ressize = sizeof(struct nfsd4_compoundres),
 		.pc_release = nfsd4_release_compoundargs,
 		.pc_cachetype = RC_NOCACHE,

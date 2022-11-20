@@ -673,7 +673,7 @@ static int xennet_xdp_xmit(struct net_device *dev, int n,
 	return nxmit;
 }
 
-static struct sk_buff *bounce_skb(const struct sk_buff *skb)
+struct sk_buff *bounce_skb(const struct sk_buff *skb)
 {
 	unsigned int headerlen = skb_headroom(skb);
 	/* Align size to allocate full pages and avoid contiguous data leaks */
@@ -2224,7 +2224,8 @@ static int xennet_create_queues(struct netfront_info *info,
 			return ret;
 		}
 
-		netif_napi_add(queue->info->netdev, &queue->napi, xennet_poll);
+		netif_napi_add(queue->info->netdev, &queue->napi,
+			       xennet_poll, 64);
 		if (netif_running(info->netdev))
 			napi_enable(&queue->napi);
 	}

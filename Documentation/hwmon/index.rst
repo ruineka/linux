@@ -44,6 +44,7 @@ Hardware Monitoring Kernel Drivers
    asc7621
    aspeed-pwm-tacho
    asus_ec_sensors
+   asus_wmi_ec_sensors
    asus_wmi_sensors
    bcm54140
    bel-pfe
@@ -62,7 +63,6 @@ Hardware Monitoring Kernel Drivers
    ds620
    emc1403
    emc2103
-   emc2305
    emc6w201
    f71805f
    f71882fg
@@ -133,7 +133,6 @@ Hardware Monitoring Kernel Drivers
    max20751
    max31722
    max31730
-   max31760
    max31785
    max31790
    max34440
@@ -206,7 +205,6 @@ Hardware Monitoring Kernel Drivers
    tps23861
    tps40422
    tps53679
-   tps546d24
    twl4030-madc-hwmon
    ucd9000
    ucd9200

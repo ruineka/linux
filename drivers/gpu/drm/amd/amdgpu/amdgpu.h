@@ -60,6 +60,7 @@
 #include <drm/amdgpu_drm.h>
 #include <drm/drm_gem.h>
 #include <drm/drm_ioctl.h>
+#include <drm/drm_sysfs.h>
 
 #include <kgd_kfd_interface.h>
 #include "dm_pp_interface.h"
@@ -273,6 +274,9 @@ extern int amdgpu_vcnfw_log;
 #define AMDGPU_RESET_UVD			(1 << 12)
 #define AMDGPU_RESET_VCE			(1 << 13)
 #define AMDGPU_RESET_VCE1			(1 << 14)
+
+#define AMDGPU_RESET_LEVEL_SOFT_RECOVERY (1 << 0)
+#define AMDGPU_RESET_LEVEL_MODE2 (1 << 1)
 
 /* max cursor sizes (in pixels) */
 #define CIK_CURSOR_WIDTH 128
@@ -882,7 +886,6 @@ struct amdgpu_device {
 	u64				fence_context;
 	unsigned			num_rings;
 	struct amdgpu_ring		*rings[AMDGPU_MAX_RINGS];
-	struct dma_fence __rcu		*gang_submit;
 	bool				ib_pool_ready;
 	struct amdgpu_sa_manager	ib_pools[AMDGPU_IB_POOL_MAX];
 	struct amdgpu_sched		gpu_sched[AMDGPU_HW_IP_NUM][AMDGPU_RING_PRIO_MAX];
@@ -1002,6 +1005,7 @@ struct amdgpu_device {
 
 	int asic_reset_res;
 	struct work_struct		xgmi_reset_work;
+	struct work_struct		gpu_reset_event_work;
 	struct list_head		reset_list;
 
 	long				gfx_timeout;
@@ -1035,6 +1039,7 @@ struct amdgpu_device {
 	pci_channel_state_t		pci_channel_state;
 
 	struct amdgpu_reset_control     *reset_cntl;
+	struct drm_reset_event		reset_event_info;
 	uint32_t                        ip_versions[MAX_HWIP][HWIP_MAX_INSTANCE];
 
 	bool				ram_is_direct_mapped;
@@ -1062,6 +1067,7 @@ struct amdgpu_device {
 
 	struct work_struct		reset_work;
 
+	uint32_t						amdgpu_reset_level_mask;
 	bool                            job_hang;
 };
 
@@ -1291,9 +1297,6 @@ u32 amdgpu_device_pcie_port_rreg(struct amdgpu_device *adev,
 				u32 reg);
 void amdgpu_device_pcie_port_wreg(struct amdgpu_device *adev,
 				u32 reg, u32 v);
-struct dma_fence *amdgpu_device_switch_gang(struct amdgpu_device *adev,
-					    struct dma_fence *gang);
-bool amdgpu_device_has_display_hardware(struct amdgpu_device *adev);
 
 /* atpx handler */
 #if defined(CONFIG_VGA_SWITCHEROO)

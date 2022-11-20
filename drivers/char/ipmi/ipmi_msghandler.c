@@ -736,6 +736,12 @@ static void intf_free(struct kref *ref)
 	kfree(intf);
 }
 
+struct watcher_entry {
+	int              intf_num;
+	struct ipmi_smi  *intf;
+	struct list_head link;
+};
+
 int ipmi_smi_watcher_register(struct ipmi_smi_watcher *watcher)
 {
 	struct ipmi_smi *intf;
@@ -4351,7 +4357,7 @@ static int handle_oem_get_msg_cmd(struct ipmi_smi *intf,
 
 			/*
 			 * The message starts at byte 4 which follows the
-			 * Channel Byte in the "GET MESSAGE" command
+			 * the Channel Byte in the "GET MESSAGE" command
 			 */
 			recv_msg->msg.data_len = msg->rsp_size - 4;
 			memcpy(recv_msg->msg_data, &msg->rsp[4],

@@ -241,11 +241,9 @@ bool ieee80211_ht_cap_ie_to_sta_ht_cap(struct ieee80211_sub_if_data *sdata,
 	ht_cap.mcs.rx_highest = ht_cap_ie->mcs.rx_highest;
 
 	if (ht_cap.cap & IEEE80211_HT_CAP_MAX_AMSDU)
-		link_sta->pub->agg.max_amsdu_len = IEEE80211_MAX_MPDU_LEN_HT_7935;
+		sta->sta.max_amsdu_len = IEEE80211_MAX_MPDU_LEN_HT_7935;
 	else
-		link_sta->pub->agg.max_amsdu_len = IEEE80211_MAX_MPDU_LEN_HT_3839;
-
-	ieee80211_sta_recalc_aggregates(&sta->sta);
+		sta->sta.max_amsdu_len = IEEE80211_MAX_MPDU_LEN_HT_3839;
 
  apply:
 	changed = memcmp(&link_sta->pub->ht_cap, &ht_cap, sizeof(ht_cap));
@@ -301,13 +299,12 @@ bool ieee80211_ht_cap_ie_to_sta_ht_cap(struct ieee80211_sub_if_data *sdata,
 			break;
 		}
 
-		if (smps_mode != link_sta->pub->smps_mode)
+		if (smps_mode != sta->sta.smps_mode)
 			changed = true;
-		link_sta->pub->smps_mode = smps_mode;
+		sta->sta.smps_mode = smps_mode;
 	} else {
-		link_sta->pub->smps_mode = IEEE80211_SMPS_OFF;
+		sta->sta.smps_mode = IEEE80211_SMPS_OFF;
 	}
-
 	return changed;
 }
 

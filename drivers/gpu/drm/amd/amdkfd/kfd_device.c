@@ -24,6 +24,7 @@
 #include <linux/bsearch.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
+#include <linux/topology.h>
 #include "kfd_priv.h"
 #include "kfd_device_queue_manager.h"
 #include "kfd_pm4_headers_vi.h"
@@ -91,7 +92,6 @@ static void kfd_device_info_set_sdma_info(struct kfd_dev *kfd)
 	case IP_VERSION(6, 0, 0):
 	case IP_VERSION(6, 0, 1):
 	case IP_VERSION(6, 0, 2):
-	case IP_VERSION(6, 0, 3):
 		kfd->device_info.num_sdma_queues_per_engine = 8;
 		break;
 	default:
@@ -104,7 +104,6 @@ static void kfd_device_info_set_sdma_info(struct kfd_dev *kfd)
 	switch (sdma_version) {
 	case IP_VERSION(6, 0, 0):
 	case IP_VERSION(6, 0, 2):
-	case IP_VERSION(6, 0, 3):
 		/* Reserve 1 for paging and 1 for gfx */
 		kfd->device_info.num_reserved_sdma_queues_per_engine = 2;
 		/* BIT(0)=engine-0 queue-0; BIT(1)=engine-1 queue-0; BIT(2)=engine-0 queue-1; ... */
@@ -152,7 +151,6 @@ static void kfd_device_info_set_event_interrupt_class(struct kfd_dev *kfd)
 	case IP_VERSION(11, 0, 0):
 	case IP_VERSION(11, 0, 1):
 	case IP_VERSION(11, 0, 2):
-	case IP_VERSION(11, 0, 3):
 		kfd->device_info.event_interrupt_class = &event_interrupt_class_v11;
 		break;
 	default:
@@ -400,11 +398,6 @@ struct kfd_dev *kgd2kfd_probe(struct amdgpu_device *adev, bool vf)
 			break;
 		case IP_VERSION(11, 0, 2):
 			gfx_target_version = 110002;
-			f2g = &gfx_v11_kfd2kgd;
-			break;
-		case IP_VERSION(11, 0, 3):
-			/* Note: Compiler version is 11.0.1 while HW version is 11.0.3 */
-			gfx_target_version = 110001;
 			f2g = &gfx_v11_kfd2kgd;
 			break;
 		default:
@@ -810,13 +803,24 @@ static inline void kfd_queue_work(struct workqueue_struct *wq,
 				  struct work_struct *work)
 {
 	int cpu, new_cpu;
+	const struct cpumask *mask = NULL;
 
 	cpu = new_cpu = smp_processor_id();
-	do {
-		new_cpu = cpumask_next(new_cpu, cpu_online_mask) % nr_cpu_ids;
-		if (cpu_to_node(new_cpu) == numa_node_id())
+
+#if defined(CONFIG_SCHED_SMT)
+	/* CPU threads in the same core */
+	mask = cpu_smt_mask(cpu);
+#endif
+	if (!mask || cpumask_weight(mask) <= 1)
+		/* CPU threads in the same NUMA node */
+		mask = cpu_cpu_mask(cpu);
+	/* Pick the next online CPU thread in the same core or NUMA node */
+	for_each_cpu_wrap(cpu, mask, cpu+1) {
+		if (cpu != new_cpu && cpu_online(cpu)) {
+			new_cpu = cpu;
 			break;
-	} while (cpu != new_cpu);
+		}
+	}
 
 	queue_work_on(new_cpu, wq, work);
 }

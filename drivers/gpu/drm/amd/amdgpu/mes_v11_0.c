@@ -38,8 +38,6 @@ MODULE_FIRMWARE("amdgpu/gc_11_0_1_mes.bin");
 MODULE_FIRMWARE("amdgpu/gc_11_0_1_mes1.bin");
 MODULE_FIRMWARE("amdgpu/gc_11_0_2_mes.bin");
 MODULE_FIRMWARE("amdgpu/gc_11_0_2_mes1.bin");
-MODULE_FIRMWARE("amdgpu/gc_11_0_3_mes.bin");
-MODULE_FIRMWARE("amdgpu/gc_11_0_3_mes1.bin");
 
 static int mes_v11_0_hw_fini(void *handle);
 static int mes_v11_0_kiq_hw_init(struct amdgpu_device *adev);
@@ -98,14 +96,7 @@ static int mes_v11_0_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 	struct amdgpu_device *adev = mes->adev;
 	struct amdgpu_ring *ring = &mes->ring;
 	unsigned long flags;
-	signed long timeout = adev->usec_timeout;
 
-	if (amdgpu_emu_mode) {
-		timeout *= 100;
-	} else if (amdgpu_sriov_vf(adev)) {
-		/* Worst case in sriov where all other 15 VF timeout, each VF needs about 600ms */
-		timeout = 15 * 600 * 1000;
-	}
 	BUG_ON(size % 4 != 0);
 
 	spin_lock_irqsave(&mes->ring_lock, flags);
@@ -125,7 +116,7 @@ static int mes_v11_0_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 	DRM_DEBUG("MES msg=%d was emitted\n", x_pkt->header.opcode);
 
 	r = amdgpu_fence_wait_polling(ring, ring->fence_drv.sync_seq,
-		      timeout);
+		      adev->usec_timeout * (amdgpu_emu_mode ? 100 : 1));
 	if (r < 1) {
 		DRM_ERROR("MES failed to response msg=%d\n",
 			  x_pkt->header.opcode);
@@ -193,15 +184,6 @@ static int mes_v11_0_add_hw_queue(struct amdgpu_mes *mes,
 	mes_add_queue_pkt.tma_addr = input->tma_addr;
 	mes_add_queue_pkt.is_kfd_process = input->is_kfd_process;
 	mes_add_queue_pkt.trap_en = 1;
-
-	/* For KFD, gds_size is re-used for queue size (needed in MES for AQL queues) */
-	mes_add_queue_pkt.is_aql_queue = input->is_aql_queue;
-	mes_add_queue_pkt.gds_size = input->queue_size;
-
-	if (!(((adev->mes.sched_version & AMDGPU_MES_VERSION_MASK) >= 4) &&
-		  (adev->ip_versions[GC_HWIP][0] >= IP_VERSION(11, 0, 0)) &&
-		  (adev->ip_versions[GC_HWIP][0] <= IP_VERSION(11, 0, 3))))
-		mes_add_queue_pkt.trap_en = 1;
 
 	/* For KFD, gds_size is re-used for queue size (needed in MES for AQL queues) */
 	mes_add_queue_pkt.is_aql_queue = input->is_aql_queue;
@@ -1339,8 +1321,7 @@ static int mes_v11_0_late_init(void *handle)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 
-	if (!amdgpu_in_reset(adev) &&
-	    (adev->ip_versions[GC_HWIP][0] != IP_VERSION(11, 0, 3)))
+	if (!amdgpu_in_reset(adev))
 		amdgpu_mes_self_test(adev);
 
 	return 0;

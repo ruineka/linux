@@ -810,22 +810,16 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 
 	switch (config->id) {
 	case NVMEM_DEVID_NONE:
-		rval = dev_set_name(&nvmem->dev, "%s", config->name);
+		dev_set_name(&nvmem->dev, "%s", config->name);
 		break;
 	case NVMEM_DEVID_AUTO:
-		rval = dev_set_name(&nvmem->dev, "%s%d", config->name, nvmem->id);
+		dev_set_name(&nvmem->dev, "%s%d", config->name, nvmem->id);
 		break;
 	default:
-		rval = dev_set_name(&nvmem->dev, "%s%d",
+		dev_set_name(&nvmem->dev, "%s%d",
 			     config->name ? : "nvmem",
 			     config->name ? config->id : nvmem->id);
 		break;
-	}
-
-	if (rval) {
-		ida_free(&nvmem_ida, nvmem->id);
-		kfree(nvmem);
-		return ERR_PTR(rval);
 	}
 
 	nvmem->read_only = device_property_present(config->dev, "read-only") ||

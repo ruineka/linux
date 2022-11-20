@@ -52,6 +52,8 @@ static inline void count_compact_events(enum vm_event_item item, long delta)
 
 #define block_start_pfn(pfn, order)	round_down(pfn, 1UL << (order))
 #define block_end_pfn(pfn, order)	ALIGN((pfn) + 1, 1UL << (order))
+#define pageblock_start_pfn(pfn)	block_start_pfn(pfn, pageblock_order)
+#define pageblock_end_pfn(pfn)		block_end_pfn(pfn, pageblock_order)
 
 /*
  * Page order with-respect-to which proactive compaction
@@ -402,7 +404,7 @@ static bool test_and_set_skip(struct compact_control *cc, struct page *page,
 	if (cc->ignore_skip_hint)
 		return false;
 
-	if (!pageblock_aligned(pfn))
+	if (!IS_ALIGNED(pfn, pageblock_nr_pages))
 		return false;
 
 	skip = get_pageblock_skip(page);
@@ -884,7 +886,7 @@ isolate_migratepages_block(struct compact_control *cc, unsigned long low_pfn,
 		 * COMPACT_CLUSTER_MAX at a time so the second call must
 		 * not falsely conclude that the block should be skipped.
 		 */
-		if (!valid_page && pageblock_aligned(low_pfn)) {
+		if (!valid_page && IS_ALIGNED(low_pfn, pageblock_nr_pages)) {
 			if (!isolation_suitable(cc, page)) {
 				low_pfn = end_pfn;
 				page = NULL;
@@ -1725,7 +1727,11 @@ typedef enum {
  * Allow userspace to control policy on scanning the unevictable LRU for
  * compactable pages.
  */
-int sysctl_compact_unevictable_allowed __read_mostly = CONFIG_COMPACT_UNEVICTABLE_DEFAULT;
+#ifdef CONFIG_PREEMPT_RT
+int sysctl_compact_unevictable_allowed __read_mostly = 0;
+#else
+int sysctl_compact_unevictable_allowed __read_mostly = 1;
+#endif
 
 static inline void
 update_fast_start_pfn(struct compact_control *cc, unsigned long pfn)
@@ -1847,6 +1853,7 @@ static unsigned long fast_find_migrateblock(struct compact_control *cc)
 					pfn = cc->zone->zone_start_pfn;
 				cc->fast_search_fail = 0;
 				found_block = true;
+				set_pageblock_skip(freepage);
 				break;
 			}
 		}
@@ -1932,7 +1939,7 @@ static isolate_migrate_t isolate_migratepages(struct compact_control *cc)
 		 * before making it "skip" so other compaction instances do
 		 * not scan the same block.
 		 */
-		if (pageblock_aligned(low_pfn) &&
+		if (IS_ALIGNED(low_pfn, pageblock_nr_pages) &&
 		    !fast_find_block && !isolation_suitable(cc, page))
 			continue;
 
@@ -1974,21 +1981,9 @@ static inline bool is_via_compact_memory(int order)
 	return order == -1;
 }
 
-/*
- * Determine whether kswapd is (or recently was!) running on this node.
- *
- * pgdat_kswapd_lock() pins pgdat->kswapd, so a concurrent kswapd_stop() can't
- * zero it.
- */
 static bool kswapd_is_running(pg_data_t *pgdat)
 {
-	bool running;
-
-	pgdat_kswapd_lock(pgdat);
-	running = pgdat->kswapd && task_is_running(pgdat->kswapd);
-	pgdat_kswapd_unlock(pgdat);
-
-	return running;
+	return pgdat->kswapd && task_is_running(pgdat->kswapd);
 }
 
 /*
@@ -2118,7 +2113,7 @@ static enum compact_result __compact_finished(struct compact_control *cc)
 	 * migration source is unmovable/reclaimable but it's not worth
 	 * special casing.
 	 */
-	if (!pageblock_aligned(cc->migrate_pfn))
+	if (!IS_ALIGNED(cc->migrate_pfn, pageblock_nr_pages))
 		return COMPACT_CONTINUE;
 
 	/* Direct compactor: Is a suitable page free? */

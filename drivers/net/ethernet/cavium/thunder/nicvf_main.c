@@ -1472,7 +1472,8 @@ int nicvf_open(struct net_device *netdev)
 		}
 		cq_poll->cq_idx = qidx;
 		cq_poll->nicvf = nic;
-		netif_napi_add(netdev, &cq_poll->napi, nicvf_poll);
+		netif_napi_add(netdev, &cq_poll->napi, nicvf_poll,
+			       NAPI_POLL_WEIGHT);
 		napi_enable(&cq_poll->napi);
 		nic->napi[qidx] = cq_poll;
 	}

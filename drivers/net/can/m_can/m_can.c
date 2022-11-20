@@ -1467,7 +1467,8 @@ static int m_can_dev_setup(struct m_can_classdev *cdev)
 	}
 
 	if (!cdev->is_peripheral)
-		netif_napi_add(dev, &cdev->napi, m_can_poll);
+		netif_napi_add(dev, &cdev->napi,
+			       m_can_poll, NAPI_POLL_WEIGHT);
 
 	/* Shared properties of all M_CAN versions */
 	cdev->version = m_can_version;

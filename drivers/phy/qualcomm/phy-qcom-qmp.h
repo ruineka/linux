@@ -19,7 +19,6 @@
 #include "phy-qcom-qmp-qserdes-com-v5.h"
 #include "phy-qcom-qmp-qserdes-txrx-v5.h"
 #include "phy-qcom-qmp-qserdes-txrx-v5_20.h"
-#include "phy-qcom-qmp-qserdes-txrx-v5_5nm.h"
 
 #include "phy-qcom-qmp-qserdes-pll.h"
 

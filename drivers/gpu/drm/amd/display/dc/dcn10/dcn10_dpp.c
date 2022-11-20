@@ -448,11 +448,10 @@ void dpp1_set_cursor_position(
 			src_y_offset = pos->y - pos->x_hotspot - param->viewport.y;
 		}
 	} else if (param->rotation == ROTATION_ANGLE_180) {
-		if (!param->mirror)
-			src_x_offset = pos->x - param->viewport.x;
-
+		src_x_offset = pos->x - param->viewport.x;
 		src_y_offset = pos->y - param->viewport.y;
 	}
+
 
 	if (src_x_offset >= (int)param->viewport.width)
 		cur_en = 0;  /* not visible beyond right edge*/
@@ -469,7 +468,6 @@ void dpp1_set_cursor_position(
 	REG_UPDATE(CURSOR0_CONTROL,
 			CUR0_ENABLE, cur_en);
 
-	dpp_base->pos.cur0_ctl.bits.cur0_enable = cur_en;
 }
 
 void dpp1_cnv_set_optional_cursor_attributes(

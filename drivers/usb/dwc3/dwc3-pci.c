@@ -40,10 +40,9 @@
 #define PCI_DEVICE_ID_INTEL_TGPLP		0xa0ee
 #define PCI_DEVICE_ID_INTEL_TGPH		0x43ee
 #define PCI_DEVICE_ID_INTEL_JSP			0x4dee
-#define PCI_DEVICE_ID_INTEL_ADL			0x460e
-#define PCI_DEVICE_ID_INTEL_ADL_PCH		0x51ee
-#define PCI_DEVICE_ID_INTEL_ADLN		0x465e
-#define PCI_DEVICE_ID_INTEL_ADLN_PCH		0x54ee
+#define PCI_DEVICE_ID_INTEL_ADL			0x465e
+#define PCI_DEVICE_ID_INTEL_ADLP		0x51ee
+#define PCI_DEVICE_ID_INTEL_ADLM		0x54ee
 #define PCI_DEVICE_ID_INTEL_ADLS		0x7ae1
 #define PCI_DEVICE_ID_INTEL_RPL			0x460e
 #define PCI_DEVICE_ID_INTEL_RPLS		0x7a61
@@ -172,9 +171,8 @@ static const struct property_entry dwc3_pci_amd_properties[] = {
 
 static const struct property_entry dwc3_pci_mr_properties[] = {
 	PROPERTY_ENTRY_STRING("dr_mode", "otg"),
-	PROPERTY_ENTRY_BOOL("usb-role-switch"),
-	PROPERTY_ENTRY_STRING("role-switch-default-mode", "host"),
 	PROPERTY_ENTRY_BOOL("linux,sysdev_is_parent"),
+	PROPERTY_ENTRY_STRING("linux,extcon-name", "steamdeck-extcon"),
 	{}
 };
 
@@ -449,13 +447,10 @@ static const struct pci_device_id dwc3_pci_id_table[] = {
 	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_INTEL_ADL),
 	  (kernel_ulong_t) &dwc3_pci_intel_swnode, },
 
-	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_INTEL_ADL_PCH),
+	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_INTEL_ADLP),
 	  (kernel_ulong_t) &dwc3_pci_intel_swnode, },
 
-	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_INTEL_ADLN),
-	  (kernel_ulong_t) &dwc3_pci_intel_swnode, },
-
-	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_INTEL_ADLN_PCH),
+	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_INTEL_ADLM),
 	  (kernel_ulong_t) &dwc3_pci_intel_swnode, },
 
 	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_INTEL_ADLS),

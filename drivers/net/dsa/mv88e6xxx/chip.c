@@ -816,14 +816,6 @@ static void mv88e6393x_phylink_get_caps(struct mv88e6xxx_chip *chip, int port,
 				MAC_10000FD;
 		}
 	}
-
-	if (port == 0) {
-		__set_bit(PHY_INTERFACE_MODE_RMII, supported);
-		__set_bit(PHY_INTERFACE_MODE_RGMII, supported);
-		__set_bit(PHY_INTERFACE_MODE_RGMII_ID, supported);
-		__set_bit(PHY_INTERFACE_MODE_RGMII_RXID, supported);
-		__set_bit(PHY_INTERFACE_MODE_RGMII_TXID, supported);
-	}
 }
 
 static void mv88e6xxx_get_caps(struct dsa_switch *ds, int port,
@@ -1136,7 +1128,7 @@ static void mv88e6xxx_atu_vtu_get_strings(uint8_t *data)
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(mv88e6xxx_atu_vtu_stats_strings); i++)
-		strscpy(data + i * ETH_GSTRING_LEN,
+		strlcpy(data + i * ETH_GSTRING_LEN,
 			mv88e6xxx_atu_vtu_stats_strings[i],
 			ETH_GSTRING_LEN);
 }
@@ -6593,17 +6585,14 @@ out:
 
 static bool mv88e6xxx_lag_can_offload(struct dsa_switch *ds,
 				      struct dsa_lag lag,
-				      struct netdev_lag_upper_info *info,
-				      struct netlink_ext_ack *extack)
+				      struct netdev_lag_upper_info *info)
 {
 	struct mv88e6xxx_chip *chip = ds->priv;
 	struct dsa_port *dp;
 	int members = 0;
 
-	if (!mv88e6xxx_has_lag(chip)) {
-		NL_SET_ERR_MSG_MOD(extack, "Chip does not support LAG offload");
+	if (!mv88e6xxx_has_lag(chip))
 		return false;
-	}
 
 	if (!lag.id)
 		return false;
@@ -6612,20 +6601,14 @@ static bool mv88e6xxx_lag_can_offload(struct dsa_switch *ds,
 		/* Includes the port joining the LAG */
 		members++;
 
-	if (members > 8) {
-		NL_SET_ERR_MSG_MOD(extack,
-				   "Cannot offload more than 8 LAG ports");
+	if (members > 8)
 		return false;
-	}
 
 	/* We could potentially relax this to include active
 	 * backup in the future.
 	 */
-	if (info->tx_type != NETDEV_LAG_TX_TYPE_HASH) {
-		NL_SET_ERR_MSG_MOD(extack,
-				   "Can only offload LAG using hash TX type");
+	if (info->tx_type != NETDEV_LAG_TX_TYPE_HASH)
 		return false;
-	}
 
 	/* Ideally we would also validate that the hash type matches
 	 * the hardware. Alas, this is always set to unknown on team
@@ -6778,13 +6761,12 @@ static int mv88e6xxx_port_lag_change(struct dsa_switch *ds, int port)
 
 static int mv88e6xxx_port_lag_join(struct dsa_switch *ds, int port,
 				   struct dsa_lag lag,
-				   struct netdev_lag_upper_info *info,
-				   struct netlink_ext_ack *extack)
+				   struct netdev_lag_upper_info *info)
 {
 	struct mv88e6xxx_chip *chip = ds->priv;
 	int err, id;
 
-	if (!mv88e6xxx_lag_can_offload(ds, lag, info, extack))
+	if (!mv88e6xxx_lag_can_offload(ds, lag, info))
 		return -EOPNOTSUPP;
 
 	/* DSA LAG IDs are one-based */
@@ -6837,13 +6819,12 @@ static int mv88e6xxx_crosschip_lag_change(struct dsa_switch *ds, int sw_index,
 
 static int mv88e6xxx_crosschip_lag_join(struct dsa_switch *ds, int sw_index,
 					int port, struct dsa_lag lag,
-					struct netdev_lag_upper_info *info,
-					struct netlink_ext_ack *extack)
+					struct netdev_lag_upper_info *info)
 {
 	struct mv88e6xxx_chip *chip = ds->priv;
 	int err;
 
-	if (!mv88e6xxx_lag_can_offload(ds, lag, info, extack))
+	if (!mv88e6xxx_lag_can_offload(ds, lag, info))
 		return -EOPNOTSUPP;
 
 	mv88e6xxx_reg_lock(chip);
@@ -7185,6 +7166,8 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
 		mv88e6xxx_g1_irq_free(chip);
 	else
 		mv88e6xxx_irq_poll_free(chip);
+
+	dev_set_drvdata(&mdiodev->dev, NULL);
 }
 
 static void mv88e6xxx_shutdown(struct mdio_device *mdiodev)

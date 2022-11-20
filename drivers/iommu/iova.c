@@ -661,6 +661,9 @@ iova_magazine_free_pfns(struct iova_magazine *mag, struct iova_domain *iovad)
 	unsigned long flags;
 	int i;
 
+	if (!mag)
+		return;
+
 	spin_lock_irqsave(&iovad->iova_rbtree_lock, flags);
 
 	for (i = 0 ; i < mag->size; ++i) {
@@ -680,12 +683,12 @@ iova_magazine_free_pfns(struct iova_magazine *mag, struct iova_domain *iovad)
 
 static bool iova_magazine_full(struct iova_magazine *mag)
 {
-	return mag->size == IOVA_MAG_SIZE;
+	return (mag && mag->size == IOVA_MAG_SIZE);
 }
 
 static bool iova_magazine_empty(struct iova_magazine *mag)
 {
-	return mag->size == 0;
+	return (!mag || mag->size == 0);
 }
 
 static unsigned long iova_magazine_pop(struct iova_magazine *mag,
@@ -693,6 +696,8 @@ static unsigned long iova_magazine_pop(struct iova_magazine *mag,
 {
 	int i;
 	unsigned long pfn;
+
+	BUG_ON(iova_magazine_empty(mag));
 
 	/* Only fall back to the rbtree if we have no suitable pfns at all */
 	for (i = mag->size - 1; mag->pfns[i] > limit_pfn; i--)
@@ -708,6 +713,8 @@ static unsigned long iova_magazine_pop(struct iova_magazine *mag,
 
 static void iova_magazine_push(struct iova_magazine *mag, unsigned long pfn)
 {
+	BUG_ON(iova_magazine_full(mag));
+
 	mag->pfns[mag->size++] = pfn;
 }
 
@@ -875,7 +882,7 @@ static unsigned long iova_rcache_get(struct iova_domain *iovad,
 {
 	unsigned int log_size = order_base_2(size);
 
-	if (log_size >= IOVA_RANGE_CACHE_MAX_SIZE)
+	if (log_size >= IOVA_RANGE_CACHE_MAX_SIZE || !iovad->rcaches)
 		return 0;
 
 	return __iova_rcache_get(&iovad->rcaches[log_size], limit_pfn - size);

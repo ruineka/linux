@@ -132,7 +132,6 @@ enum nfp_eth_fec {
  * @ports.interface:	interface (module) plugged in
  * @ports.media:	media type of the @interface
  * @ports.fec:		forward error correction mode
- * @ports.act_fec:	active forward error correction mode
  * @ports.aneg:		auto negotiation mode
  * @ports.mac_addr:	interface MAC address
  * @ports.label_port:	port id
@@ -163,7 +162,6 @@ struct nfp_eth_table {
 		enum nfp_eth_media media;
 
 		enum nfp_eth_fec fec;
-		enum nfp_eth_fec act_fec;
 		enum nfp_eth_aneg aneg;
 
 		u8 mac_addr[ETH_ALEN];
@@ -174,7 +172,6 @@ struct nfp_eth_table {
 		bool enabled;
 		bool tx_enabled;
 		bool rx_enabled;
-		bool supp_aneg;
 
 		bool override_changed;
 

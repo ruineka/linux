@@ -5425,11 +5425,11 @@ mvpp2_ethtool_get_coalesce(struct net_device *dev,
 static void mvpp2_ethtool_get_drvinfo(struct net_device *dev,
 				      struct ethtool_drvinfo *drvinfo)
 {
-	strscpy(drvinfo->driver, MVPP2_DRIVER_NAME,
+	strlcpy(drvinfo->driver, MVPP2_DRIVER_NAME,
 		sizeof(drvinfo->driver));
-	strscpy(drvinfo->version, MVPP2_DRIVER_VERSION,
+	strlcpy(drvinfo->version, MVPP2_DRIVER_VERSION,
 		sizeof(drvinfo->version));
-	strscpy(drvinfo->bus_info, dev_name(&dev->dev),
+	strlcpy(drvinfo->bus_info, dev_name(&dev->dev),
 		sizeof(drvinfo->bus_info));
 }
 
@@ -5770,7 +5770,8 @@ static int mvpp2_simple_queue_vectors_init(struct mvpp2_port *port,
 	v->irq = irq_of_parse_and_map(port_node, 0);
 	if (v->irq <= 0)
 		return -EINVAL;
-	netif_napi_add(port->dev, &v->napi, mvpp2_poll);
+	netif_napi_add(port->dev, &v->napi, mvpp2_poll,
+		       NAPI_POLL_WEIGHT);
 
 	port->nqvecs = 1;
 
@@ -5830,7 +5831,8 @@ static int mvpp2_multi_queue_vectors_init(struct mvpp2_port *port,
 			goto err;
 		}
 
-		netif_napi_add(port->dev, &v->napi, mvpp2_poll);
+		netif_napi_add(port->dev, &v->napi, mvpp2_poll,
+			       NAPI_POLL_WEIGHT);
 	}
 
 	return 0;

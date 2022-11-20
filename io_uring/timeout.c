@@ -149,10 +149,11 @@ static inline void io_remove_next_linked(struct io_kiocb *req)
 	nxt->link = NULL;
 }
 
-void io_disarm_next(struct io_kiocb *req)
+bool io_disarm_next(struct io_kiocb *req)
 	__must_hold(&req->ctx->completion_lock)
 {
 	struct io_kiocb *link = NULL;
+	bool posted = false;
 
 	if (req->flags & REQ_F_ARM_LTIMEOUT) {
 		link = req->link;
@@ -160,6 +161,7 @@ void io_disarm_next(struct io_kiocb *req)
 		if (link && link->opcode == IORING_OP_LINK_TIMEOUT) {
 			io_remove_next_linked(req);
 			io_req_tw_post_queue(link, -ECANCELED, 0);
+			posted = true;
 		}
 	} else if (req->flags & REQ_F_LINK_TIMEOUT) {
 		struct io_ring_ctx *ctx = req->ctx;
@@ -167,12 +169,17 @@ void io_disarm_next(struct io_kiocb *req)
 		spin_lock_irq(&ctx->timeout_lock);
 		link = io_disarm_linked_timeout(req);
 		spin_unlock_irq(&ctx->timeout_lock);
-		if (link)
+		if (link) {
+			posted = true;
 			io_req_tw_post_queue(link, -ECANCELED, 0);
+		}
 	}
 	if (unlikely((req->flags & REQ_F_FAIL) &&
-		     !(req->flags & REQ_F_HARDLINK)))
+		     !(req->flags & REQ_F_HARDLINK))) {
+		posted |= (req->link != NULL);
 		io_fail_links(req);
+	}
+	return posted;
 }
 
 struct io_kiocb *__io_disarm_linked_timeout(struct io_kiocb *req,

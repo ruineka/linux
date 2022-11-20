@@ -1711,16 +1711,6 @@ static struct extcon_dev *dwc3_get_extcon(struct dwc3 *dwc)
 		return extcon_get_extcon_dev(name);
 
 	/*
-	 * Check explicitly if "usb-role-switch" is used since
-	 * extcon_find_edev_by_node() can not be used to check the absence of
-	 * an extcon device. In the absence of an device it will always return
-	 * EPROBE_DEFER.
-	 */
-	if (IS_ENABLED(CONFIG_USB_ROLE_SWITCH) &&
-	    device_property_read_bool(dev, "usb-role-switch"))
-		return NULL;
-
-	/*
 	 * Try to get an extcon device from the USB PHY controller's "port"
 	 * node. Check if it has the "port" node first, to avoid printing the
 	 * error message from underlying code, as it's a valid case: extcon
@@ -2023,7 +2013,9 @@ static int dwc3_suspend_common(struct dwc3 *dwc, pm_message_t msg)
 	case DWC3_GCTL_PRTCAP_DEVICE:
 		if (pm_runtime_suspended(dwc->dev))
 			break;
+		spin_lock_irqsave(&dwc->lock, flags);
 		dwc3_gadget_suspend(dwc);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		synchronize_irq(dwc->irq_gadget);
 		dwc3_core_exit(dwc);
 		break;
@@ -2084,7 +2076,9 @@ static int dwc3_resume_common(struct dwc3 *dwc, pm_message_t msg)
 			return ret;
 
 		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+		spin_lock_irqsave(&dwc->lock, flags);
 		dwc3_gadget_resume(dwc);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case DWC3_GCTL_PRTCAP_HOST:
 		if (!PMSG_IS_AUTO(msg) && !device_may_wakeup(dwc->dev)) {

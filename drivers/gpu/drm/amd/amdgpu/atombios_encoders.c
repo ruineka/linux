@@ -26,8 +26,6 @@
 
 #include <linux/pci.h>
 
-#include <acpi/video.h>
-
 #include <drm/drm_crtc_helper.h>
 #include <drm/amdgpu_drm.h>
 #include "amdgpu.h"
@@ -38,6 +36,10 @@
 #include "atombios_dp.h"
 #include <linux/backlight.h>
 #include "bif/bif_4_1_d.h"
+
+
+/* Maximum backlight level. */
+#define AMDGPU_ATOM_MAX_BL_LEVEL 0xFF
 
 u8
 amdgpu_atombios_encoder_get_backlight_level_from_reg(struct amdgpu_device *adev)
@@ -127,8 +129,8 @@ static u8 amdgpu_atombios_encoder_backlight_level(struct backlight_device *bd)
 	/* Convert brightness to hardware level */
 	if (bd->props.brightness < 0)
 		level = 0;
-	else if (bd->props.brightness > AMDGPU_MAX_BL_LEVEL)
-		level = AMDGPU_MAX_BL_LEVEL;
+	else if (bd->props.brightness > AMDGPU_ATOM_MAX_BL_LEVEL)
+		level = AMDGPU_ATOM_MAX_BL_LEVEL;
 	else
 		level = bd->props.brightness;
 
@@ -184,12 +186,7 @@ void amdgpu_atombios_encoder_init_backlight(struct amdgpu_encoder *amdgpu_encode
 		return;
 
 	if (!(adev->mode_info.firmware_flags & ATOM_BIOS_INFO_BL_CONTROLLED_BY_GPU))
-		goto register_acpi_backlight;
-
-	if (!acpi_video_backlight_use_native()) {
-		drm_info(dev, "Skipping amdgpu atom DIG backlight registration\n");
-		goto register_acpi_backlight;
-	}
+		return;
 
 	pdata = kmalloc(sizeof(struct amdgpu_backlight_privdata), GFP_KERNEL);
 	if (!pdata) {
@@ -198,7 +195,7 @@ void amdgpu_atombios_encoder_init_backlight(struct amdgpu_encoder *amdgpu_encode
 	}
 
 	memset(&props, 0, sizeof(props));
-	props.max_brightness = AMDGPU_MAX_BL_LEVEL;
+	props.max_brightness = AMDGPU_ATOM_MAX_BL_LEVEL;
 	props.type = BACKLIGHT_RAW;
 	snprintf(bl_name, sizeof(bl_name),
 		 "amdgpu_bl%d", dev->primary->index);
@@ -224,11 +221,6 @@ void amdgpu_atombios_encoder_init_backlight(struct amdgpu_encoder *amdgpu_encode
 
 error:
 	kfree(pdata);
-	return;
-
-register_acpi_backlight:
-	/* Try registering an ACPI video backlight device instead. */
-	acpi_video_register_backlight();
 	return;
 }
 

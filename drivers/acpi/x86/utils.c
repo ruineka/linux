@@ -219,12 +219,6 @@ static const struct dmi_system_id force_storage_d3_dmi[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "Inspiron 14 7425 2-in-1"),
 		}
 	},
-	{
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Inspiron 16 5625"),
-		}
-	},
 	{}
 };
 
@@ -374,17 +368,11 @@ int acpi_quirk_skip_serdev_enumeration(struct device *controller_parent, bool *s
 	struct acpi_device *adev = ACPI_COMPANION(controller_parent);
 	const struct dmi_system_id *dmi_id;
 	long quirks = 0;
-	u64 uid;
-	int ret;
 
 	*skip = false;
 
-	ret = acpi_dev_uid_to_integer(adev, &uid);
-	if (ret)
-		return 0;
-
-	/* to not match on PNP enumerated debug UARTs */
-	if (!dev_is_platform(controller_parent))
+	/* !dev_is_platform() to not match on PNP enumerated debug UARTs */
+	if (!adev || !adev->pnp.unique_id || !dev_is_platform(controller_parent))
 		return 0;
 
 	dmi_id = dmi_first_match(acpi_quirk_skip_dmi_ids);
@@ -392,10 +380,10 @@ int acpi_quirk_skip_serdev_enumeration(struct device *controller_parent, bool *s
 		quirks = (unsigned long)dmi_id->driver_data;
 
 	if (quirks & ACPI_QUIRK_UART1_TTY_UART2_SKIP) {
-		if (uid == 1)
+		if (!strcmp(adev->pnp.unique_id, "1"))
 			return -ENODEV; /* Create tty cdev instead of serdev */
 
-		if (uid == 2)
+		if (!strcmp(adev->pnp.unique_id, "2"))
 			*skip = true;
 	}
 

@@ -43,7 +43,6 @@
 enum {
 	MCTP_I2C_FLOW_STATE_NEW = 0,
 	MCTP_I2C_FLOW_STATE_ACTIVE,
-	MCTP_I2C_FLOW_STATE_INVALID,
 };
 
 /* List of all struct mctp_i2c_client
@@ -375,18 +374,12 @@ mctp_i2c_get_tx_flow_state(struct mctp_i2c_dev *midev, struct sk_buff *skb)
 	 */
 	if (!key->valid) {
 		state = MCTP_I2C_TX_FLOW_INVALID;
+
+	} else if (key->dev_flow_state == MCTP_I2C_FLOW_STATE_NEW) {
+		key->dev_flow_state = MCTP_I2C_FLOW_STATE_ACTIVE;
+		state = MCTP_I2C_TX_FLOW_NEW;
 	} else {
-		switch (key->dev_flow_state) {
-		case MCTP_I2C_FLOW_STATE_NEW:
-			key->dev_flow_state = MCTP_I2C_FLOW_STATE_ACTIVE;
-			state = MCTP_I2C_TX_FLOW_NEW;
-			break;
-		case MCTP_I2C_FLOW_STATE_ACTIVE:
-			state = MCTP_I2C_TX_FLOW_EXISTING;
-			break;
-		default:
-			state = MCTP_I2C_TX_FLOW_INVALID;
-		}
+		state = MCTP_I2C_TX_FLOW_EXISTING;
 	}
 
 	spin_unlock_irqrestore(&key->lock, flags);
@@ -624,31 +617,21 @@ static void mctp_i2c_release_flow(struct mctp_dev *mdev,
 
 {
 	struct mctp_i2c_dev *midev = netdev_priv(mdev->dev);
-	bool queue_release = false;
 	unsigned long flags;
 
 	spin_lock_irqsave(&midev->lock, flags);
-	/* if we have seen the flow/key previously, we need to pair the
-	 * original lock with a release
-	 */
-	if (key->dev_flow_state == MCTP_I2C_FLOW_STATE_ACTIVE) {
-		midev->release_count++;
-		queue_release = true;
-	}
-	key->dev_flow_state = MCTP_I2C_FLOW_STATE_INVALID;
+	midev->release_count++;
 	spin_unlock_irqrestore(&midev->lock, flags);
 
-	if (queue_release) {
-		/* Ensure we have a release operation queued, through the fake
-		 * marker skb
-		 */
-		spin_lock(&midev->tx_queue.lock);
-		if (!midev->unlock_marker.next)
-			__skb_queue_tail(&midev->tx_queue,
-					 &midev->unlock_marker);
-		spin_unlock(&midev->tx_queue.lock);
-		wake_up(&midev->tx_wq);
-	}
+	/* Ensure we have a release operation queued, through the fake
+	 * marker skb
+	 */
+	spin_lock(&midev->tx_queue.lock);
+	if (!midev->unlock_marker.next)
+		__skb_queue_tail(&midev->tx_queue, &midev->unlock_marker);
+	spin_unlock(&midev->tx_queue.lock);
+
+	wake_up(&midev->tx_wq);
 }
 
 static const struct net_device_ops mctp_i2c_ops = {
@@ -1003,7 +986,7 @@ out:
 	return rc;
 }
 
-static void mctp_i2c_remove(struct i2c_client *client)
+static int mctp_i2c_remove(struct i2c_client *client)
 {
 	struct mctp_i2c_client *mcli = i2c_get_clientdata(client);
 	struct mctp_i2c_dev *midev = NULL, *tmp = NULL;
@@ -1016,6 +999,8 @@ static void mctp_i2c_remove(struct i2c_client *client)
 
 	mctp_i2c_free_client(mcli);
 	mutex_unlock(&driver_clients_lock);
+	/* Callers ignore return code */
+	return 0;
 }
 
 /* We look for a 'mctp-controller' property on I2C busses as they are

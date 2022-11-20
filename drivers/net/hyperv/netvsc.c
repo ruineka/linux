@@ -1783,7 +1783,8 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
 	}
 
 	/* Enable NAPI handler before init callbacks */
-	netif_napi_add(ndev, &net_device->chan_table[0].napi, netvsc_poll);
+	netif_napi_add(ndev, &net_device->chan_table[0].napi,
+		       netvsc_poll, NAPI_POLL_WEIGHT);
 
 	/* Open the channel */
 	device->channel->next_request_id_callback = vmbus_next_request_id;

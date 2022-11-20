@@ -870,7 +870,7 @@ static ssize_t ata_ncq_prio_enable_show(struct device *device,
 	if (!dev)
 		rc = -ENODEV;
 	else
-		ncq_prio_enable = dev->flags & ATA_DFLAG_NCQ_PRIO_ENABLED;
+		ncq_prio_enable = dev->flags & ATA_DFLAG_NCQ_PRIO_ENABLE;
 	spin_unlock_irq(ap->lock);
 
 	return rc ? rc : sysfs_emit(buf, "%u\n", ncq_prio_enable);
@@ -905,9 +905,9 @@ static ssize_t ata_ncq_prio_enable_store(struct device *device,
 	}
 
 	if (input)
-		dev->flags |= ATA_DFLAG_NCQ_PRIO_ENABLED;
+		dev->flags |= ATA_DFLAG_NCQ_PRIO_ENABLE;
 	else
-		dev->flags &= ~ATA_DFLAG_NCQ_PRIO_ENABLED;
+		dev->flags &= ~ATA_DFLAG_NCQ_PRIO_ENABLE;
 
 unlock:
 	spin_unlock_irq(ap->lock);

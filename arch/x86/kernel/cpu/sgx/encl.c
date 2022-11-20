@@ -12,9 +12,6 @@
 #include "encls.h"
 #include "sgx.h"
 
-static int sgx_encl_lookup_backing(struct sgx_encl *encl, unsigned long page_index,
-			    struct sgx_backing *backing);
-
 #define PCMDS_PER_PAGE (PAGE_SIZE / sizeof(struct sgx_pcmd))
 /*
  * 32 PCMD entries share a PCMD page. PCMD_FIRST_MASK is used to
@@ -912,14 +909,15 @@ const cpumask_t *sgx_encl_cpumask(struct sgx_encl *encl)
 static struct page *sgx_encl_get_backing_page(struct sgx_encl *encl,
 					      pgoff_t index)
 {
-	struct address_space *mapping = encl->backing->f_mapping;
+	struct inode *inode = encl->backing->f_path.dentry->d_inode;
+	struct address_space *mapping = inode->i_mapping;
 	gfp_t gfpmask = mapping_gfp_mask(mapping);
 
 	return shmem_read_mapping_page_gfp(mapping, index, gfpmask);
 }
 
 /**
- * __sgx_encl_get_backing() - Pin the backing storage
+ * sgx_encl_get_backing() - Pin the backing storage
  * @encl:	an enclave pointer
  * @page_index:	enclave page index
  * @backing:	data for accessing backing storage for the page
@@ -931,7 +929,7 @@ static struct page *sgx_encl_get_backing_page(struct sgx_encl *encl,
  *   0 on success,
  *   -errno otherwise.
  */
-static int __sgx_encl_get_backing(struct sgx_encl *encl, unsigned long page_index,
+static int sgx_encl_get_backing(struct sgx_encl *encl, unsigned long page_index,
 			 struct sgx_backing *backing)
 {
 	pgoff_t page_pcmd_off = sgx_encl_get_backing_page_pcmd_offset(encl, page_index);
@@ -1006,7 +1004,7 @@ static struct mem_cgroup *sgx_encl_get_mem_cgroup(struct sgx_encl *encl)
 }
 
 /**
- * sgx_encl_alloc_backing() - create a new backing storage page
+ * sgx_encl_alloc_backing() - allocate a new backing storage page
  * @encl:	an enclave pointer
  * @page_index:	enclave page index
  * @backing:	data for accessing backing storage for the page
@@ -1014,9 +1012,7 @@ static struct mem_cgroup *sgx_encl_get_mem_cgroup(struct sgx_encl *encl)
  * When called from ksgxd, sets the active memcg from one of the
  * mms in the enclave's mm_list prior to any backing page allocation,
  * in order to ensure that shmem page allocations are charged to the
- * enclave.  Create a backing page for loading data back into an EPC page with
- * ELDU.  This function takes a reference on a new backing page which
- * must be dropped with a corresponding call to sgx_encl_put_backing().
+ * enclave.
  *
  * Return:
  *   0 on success,
@@ -1029,7 +1025,7 @@ int sgx_encl_alloc_backing(struct sgx_encl *encl, unsigned long page_index,
 	struct mem_cgroup *memcg = set_active_memcg(encl_memcg);
 	int ret;
 
-	ret = __sgx_encl_get_backing(encl, page_index, backing);
+	ret = sgx_encl_get_backing(encl, page_index, backing);
 
 	set_active_memcg(memcg);
 	mem_cgroup_put(encl_memcg);
@@ -1047,17 +1043,15 @@ int sgx_encl_alloc_backing(struct sgx_encl *encl, unsigned long page_index,
  * It is the caller's responsibility to ensure that it is appropriate to use
  * sgx_encl_lookup_backing() rather than sgx_encl_alloc_backing(). If lookup is
  * not used correctly, this will cause an allocation which is not accounted for.
- * This function takes a reference on an existing backing page which must be
- * dropped with a corresponding call to sgx_encl_put_backing().
  *
  * Return:
  *   0 on success,
  *   -errno otherwise.
  */
-static int sgx_encl_lookup_backing(struct sgx_encl *encl, unsigned long page_index,
+int sgx_encl_lookup_backing(struct sgx_encl *encl, unsigned long page_index,
 			   struct sgx_backing *backing)
 {
-	return __sgx_encl_get_backing(encl, page_index, backing);
+	return sgx_encl_get_backing(encl, page_index, backing);
 }
 
 /**

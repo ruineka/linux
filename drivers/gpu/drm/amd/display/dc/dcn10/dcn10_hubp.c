@@ -1208,10 +1208,13 @@ void hubp1_cursor_set_position(
 			src_y_offset = pos->y - pos->x_hotspot - param->viewport.y;
 		}
 	} else if (param->rotation == ROTATION_ANGLE_180) {
-		if (!param->mirror)
-			src_x_offset = pos->x - param->viewport.x;
-
+		src_x_offset = pos->x - param->viewport.x;
 		src_y_offset = pos->y - param->viewport.y;
+	}
+
+	if (param->mirror) {
+		x_hotspot = param->viewport.width - x_hotspot;
+		src_x_offset = param->viewport.x + param->viewport.width - src_x_offset;
 	}
 
 	dst_x_offset = (src_x_offset >= 0) ? src_x_offset : 0;

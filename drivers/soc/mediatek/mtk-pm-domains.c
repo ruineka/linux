@@ -393,7 +393,7 @@ generic_pm_domain *scpsys_add_one_domain(struct scpsys *scpsys, struct device_no
 		if (IS_ERR(clk)) {
 			ret = PTR_ERR(clk);
 			dev_err_probe(scpsys->dev, ret,
-				      "%pOF: failed to get clk at index %d\n", node, i);
+				      "%pOF: failed to get clk at index %d: %d\n", node, i, ret);
 			goto err_put_clocks;
 		}
 
@@ -405,8 +405,8 @@ generic_pm_domain *scpsys_add_one_domain(struct scpsys *scpsys, struct device_no
 		if (IS_ERR(clk)) {
 			ret = PTR_ERR(clk);
 			dev_err_probe(scpsys->dev, ret,
-				      "%pOF: failed to get clk at index %d\n", node,
-				      i + clk_ind);
+				      "%pOF: failed to get clk at index %d: %d\n", node,
+				      i + clk_ind, ret);
 			goto err_put_subsys_clocks;
 		}
 

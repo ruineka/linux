@@ -16,9 +16,8 @@
 struct ctl_table;
 struct user_struct;
 struct mmu_gather;
-struct node;
 
-#ifndef CONFIG_ARCH_HAS_HUGEPD
+#ifndef is_hugepd
 typedef struct { unsigned long pd; } hugepd_t;
 #define is_hugepd(hugepd) (0)
 #define __hugepd(x) ((hugepd_t) { (x) })
@@ -115,12 +114,6 @@ struct file_region {
 #endif
 };
 
-struct hugetlb_vma_lock {
-	struct kref refs;
-	struct rw_semaphore rw_sema;
-	struct vm_area_struct *vma;
-};
-
 extern struct resv_map *resv_map_alloc(void);
 void resv_map_release(struct kref *ref);
 
@@ -133,7 +126,7 @@ struct hugepage_subpool *hugepage_new_subpool(struct hstate *h, long max_hpages,
 						long min_hpages);
 void hugepage_put_subpool(struct hugepage_subpool *spool);
 
-void hugetlb_dup_vma_private(struct vm_area_struct *vma);
+void reset_vma_resv_huge_pages(struct vm_area_struct *vma);
 void clear_vma_resv_huge_pages(struct vm_area_struct *vma);
 int hugetlb_sysctl_handler(struct ctl_table *, int, void *, size_t *, loff_t *);
 int hugetlb_overcommit_handler(struct ctl_table *, int, void *, size_t *,
@@ -221,14 +214,6 @@ struct page *follow_huge_pud(struct mm_struct *mm, unsigned long address,
 struct page *follow_huge_pgd(struct mm_struct *mm, unsigned long address,
 			     pgd_t *pgd, int flags);
 
-void hugetlb_vma_lock_read(struct vm_area_struct *vma);
-void hugetlb_vma_unlock_read(struct vm_area_struct *vma);
-void hugetlb_vma_lock_write(struct vm_area_struct *vma);
-void hugetlb_vma_unlock_write(struct vm_area_struct *vma);
-int hugetlb_vma_trylock_write(struct vm_area_struct *vma);
-void hugetlb_vma_assert_locked(struct vm_area_struct *vma);
-void hugetlb_vma_lock_release(struct kref *kref);
-
 int pmd_huge(pmd_t pmd);
 int pud_huge(pud_t pud);
 unsigned long hugetlb_change_protection(struct vm_area_struct *vma,
@@ -240,7 +225,7 @@ void hugetlb_unshare_all_pmds(struct vm_area_struct *vma);
 
 #else /* !CONFIG_HUGETLB_PAGE */
 
-static inline void hugetlb_dup_vma_private(struct vm_area_struct *vma)
+static inline void reset_vma_resv_huge_pages(struct vm_area_struct *vma)
 {
 }
 
@@ -349,31 +334,6 @@ static inline int prepare_hugepage_range(struct file *file,
 				unsigned long addr, unsigned long len)
 {
 	return -EINVAL;
-}
-
-static inline void hugetlb_vma_lock_read(struct vm_area_struct *vma)
-{
-}
-
-static inline void hugetlb_vma_unlock_read(struct vm_area_struct *vma)
-{
-}
-
-static inline void hugetlb_vma_lock_write(struct vm_area_struct *vma)
-{
-}
-
-static inline void hugetlb_vma_unlock_write(struct vm_area_struct *vma)
-{
-}
-
-static inline int hugetlb_vma_trylock_write(struct vm_area_struct *vma)
-{
-	return 1;
-}
-
-static inline void hugetlb_vma_assert_locked(struct vm_area_struct *vma)
-{
 }
 
 static inline int pmd_huge(pmd_t pmd)
@@ -705,7 +665,7 @@ struct page *alloc_huge_page_nodemask(struct hstate *h, int preferred_nid,
 				nodemask_t *nmask, gfp_t gfp_mask);
 struct page *alloc_huge_page_vma(struct hstate *h, struct vm_area_struct *vma,
 				unsigned long address);
-int hugetlb_add_to_page_cache(struct page *page, struct address_space *mapping,
+int huge_add_to_page_cache(struct page *page, struct address_space *mapping,
 			pgoff_t idx);
 void restore_reserve_on_error(struct hstate *h, struct vm_area_struct *vma,
 				unsigned long address, struct page *page);
@@ -975,11 +935,6 @@ static inline void huge_ptep_modify_prot_commit(struct vm_area_struct *vma,
 }
 #endif
 
-#ifdef CONFIG_NUMA
-void hugetlb_register_node(struct node *node);
-void hugetlb_unregister_node(struct node *node);
-#endif
-
 #else	/* CONFIG_HUGETLB_PAGE */
 struct hstate {};
 
@@ -1154,14 +1109,6 @@ static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
 				   pte_t *ptep, pte_t pte)
 {
 }
-
-static inline void hugetlb_register_node(struct node *node)
-{
-}
-
-static inline void hugetlb_unregister_node(struct node *node)
-{
-}
 #endif	/* CONFIG_HUGETLB_PAGE */
 
 static inline spinlock_t *huge_pte_lock(struct hstate *h,
@@ -1176,8 +1123,12 @@ static inline spinlock_t *huge_pte_lock(struct hstate *h,
 
 #if defined(CONFIG_HUGETLB_PAGE) && defined(CONFIG_CMA)
 extern void __init hugetlb_cma_reserve(int order);
+extern void __init hugetlb_cma_check(void);
 #else
 static inline __init void hugetlb_cma_reserve(int order)
+{
+}
+static inline __init void hugetlb_cma_check(void)
 {
 }
 #endif

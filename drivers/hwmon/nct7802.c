@@ -1038,7 +1038,7 @@ static int nct7802_detect(struct i2c_client *client,
 	if (reg < 0 || (reg & 0x3f))
 		return -ENODEV;
 
-	strscpy(info->type, "nct7802", I2C_NAME_SIZE);
+	strlcpy(info->type, "nct7802", I2C_NAME_SIZE);
 	return 0;
 }
 

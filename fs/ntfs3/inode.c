@@ -630,9 +630,12 @@ static noinline int ntfs_get_block_vbo(struct inode *inode, u64 vbo,
 			bh->b_size = block_size;
 			off = vbo & (PAGE_SIZE - 1);
 			set_bh_page(bh, page, off);
-			err = bh_read(bh, 0);
-			if (err < 0)
+			ll_rw_block(REQ_OP_READ, 1, &bh);
+			wait_on_buffer(bh);
+			if (!buffer_uptodate(bh)) {
+				err = -EIO;
 				goto out;
+			}
 			zero_user_segment(page, off + voff, off + block_size);
 		}
 	}

@@ -3351,6 +3351,8 @@ static void sja1105_remove(struct spi_device *spi)
 		return;
 
 	dsa_unregister_switch(priv->ds);
+
+	spi_set_drvdata(spi, NULL);
 }
 
 static void sja1105_shutdown(struct spi_device *spi)
